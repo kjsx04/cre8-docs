@@ -42,12 +42,13 @@ function numberToWordsRaw(n: number): string {
 }
 
 /**
- * For day/count fields: "3" → "three (3)"
+ * For day/count fields: "3" → "three"
+ * Just the word — the template already has ({{number}}) next to it
  */
 export function numberToWritten(input: string): string {
   const n = parseInt(input, 10);
   if (isNaN(n)) return input;
-  return `${numberToWordsRaw(n)} (${n})`;
+  return numberToWordsRaw(n);
 }
 
 /**
