@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { getDocTypeBySlug, getVariableMap } from "@/lib/constants";
+import { getDocTypeBySlug, getVariableMap, getFieldSections } from "@/lib/constants";
 import { CLAUSE_LIBRARY } from "@/lib/clause-library";
 import { ExtractedVariable, ClauseState } from "@/lib/types";
 import { numberToWritten, dollarToWritten, formatCurrency } from "@/lib/number-to-words";
@@ -249,10 +249,17 @@ export default function ReviewPage() {
     );
   }
 
-  // Separate variables into groups for display
+  // Build section-grouped display
   const varMap = getVariableMap(docType.id);
+  const sections = getFieldSections(docType.id);
   const writtenTokens = new Set(
     varMap.filter((v) => v.writtenVariant).map((v) => v.writtenVariant!)
+  );
+
+  // Collect any tokens not in a section (safety net)
+  const sectionedTokens = new Set(sections.flatMap((s) => s.tokens));
+  const unsectionedTokens = Object.keys(variables).filter(
+    (t) => !sectionedTokens.has(t)
   );
 
   return (
@@ -278,20 +285,62 @@ export default function ReviewPage() {
         </p>
       </div>
 
-      {/* Variables grid */}
-      <div className="space-y-4 mb-8">
-        {Object.entries(variables).map(([token, variable]) => {
-          const isWritten = writtenTokens.has(token);
+      {/* Variables grouped by section */}
+      <div className="space-y-8 mb-8">
+        {sections.map((section) => {
+          // Only show sections that have variables with values or are expected
+          const sectionVars = section.tokens.filter((t) => variables[t]);
+          if (sectionVars.length === 0) return null;
+
           return (
-            <ReviewField
-              key={token}
-              token={token}
-              variable={variable}
-              onChange={handleVariableChange}
-              isWrittenVariant={isWritten}
-            />
+            <div key={section.title}>
+              <h2 className="font-bebas text-lg tracking-wide text-medium-gray mb-3 border-b border-border-gray pb-2">
+                {section.title}
+              </h2>
+              <div className="space-y-4">
+                {sectionVars.map((token) => {
+                  const variable = variables[token];
+                  if (!variable) return null;
+                  const isWritten = writtenTokens.has(token);
+                  return (
+                    <ReviewField
+                      key={token}
+                      token={token}
+                      variable={variable}
+                      onChange={handleVariableChange}
+                      isWrittenVariant={isWritten}
+                    />
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
+
+        {/* Any unsectioned fields (safety net) */}
+        {unsectionedTokens.length > 0 && (
+          <div>
+            <h2 className="font-bebas text-lg tracking-wide text-medium-gray mb-3 border-b border-border-gray pb-2">
+              Other
+            </h2>
+            <div className="space-y-4">
+              {unsectionedTokens.map((token) => {
+                const variable = variables[token];
+                if (!variable) return null;
+                const isWritten = writtenTokens.has(token);
+                return (
+                  <ReviewField
+                    key={token}
+                    token={token}
+                    variable={variable}
+                    onChange={handleVariableChange}
+                    isWrittenVariant={isWritten}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Clauses section (Flexible mode only) */}

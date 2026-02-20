@@ -98,6 +98,97 @@ export const LOI_BUILDING_VARIABLES: VariableDef[] = [
   { token: "cre8_agent_phone", label: "CRE8 Agent Phone", source: "cms_teams", flag: false },
 ];
 
+// ── Section grouping for review screen ──
+
+export interface FieldSection {
+  title: string;
+  tokens: string[];
+}
+
+export const LOI_BUILDING_SECTIONS: FieldSection[] = [
+  {
+    title: "Date & Brokers",
+    tokens: [
+      "date",
+      "seller_broker_name",
+      "seller_broker_company",
+      "seller_broker_email",
+      "broker_names",
+      "cre8_agent_email",
+      "cre8_agent_phone",
+    ],
+  },
+  {
+    title: "Parties",
+    tokens: [
+      "buyer_entity",
+      "seller_entity",
+    ],
+  },
+  {
+    title: "Property",
+    tokens: [
+      "property_address",
+      "parcel_number",
+    ],
+  },
+  {
+    title: "Price & Earnest Money",
+    tokens: [
+      "purchase_price",
+      "earnest_money",
+      "earnest_money_written",
+      "emd_days",
+      "emd_days_written",
+    ],
+  },
+  {
+    title: "Title & PSA",
+    tokens: [
+      "title_company",
+      "title_agent",
+      "psa_draft_days",
+      "psa_draft_days_written",
+    ],
+  },
+  {
+    title: "Timeline",
+    tokens: [
+      "dd_period",
+      "dd_period_written",
+      "closing_period",
+      "closing_period_written",
+      "seller_disclosures_days",
+      "seller_disclosures_days_written",
+    ],
+  },
+  {
+    title: "Extensions",
+    tokens: [
+      "extension_count",
+      "extension_count_written",
+      "extension_days",
+      "extension_days_written",
+      "extension_deposit",
+    ],
+  },
+  {
+    title: "Commission",
+    tokens: [
+      "commission_pct",
+    ],
+  },
+];
+
+export function getFieldSections(docType: string): FieldSection[] {
+  switch (docType) {
+    case "loi_building":
+      return LOI_BUILDING_SECTIONS;
+    default:
+      return LOI_BUILDING_SECTIONS;
+  }
+}
+
 // ── Variable map lookup by doc type ──
 
 export function getVariableMap(docType: string): VariableDef[] {

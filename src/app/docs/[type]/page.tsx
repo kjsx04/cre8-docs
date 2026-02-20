@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { getDocTypeBySlug, CMS_API_BASE } from "@/lib/constants";
 import { CmsTeamMember, CmsListing } from "@/lib/types";
-import VoiceInput from "@/components/VoiceInput";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function InputPage() {
@@ -70,11 +69,6 @@ export default function InputPage() {
     }
 
     fetchCmsData();
-  }, []);
-
-  // Handle voice transcription — append to existing text
-  const handleTranscript = useCallback((text: string) => {
-    setRawInput((prev) => (prev ? prev + " " + text : text));
   }, []);
 
   // Get selected broker details
@@ -253,14 +247,11 @@ export default function InputPage() {
 
       {/* Text input area */}
       <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-white">Deal Description</label>
-          <VoiceInput onTranscript={handleTranscript} />
-        </div>
+        <label className="text-sm font-medium text-white mb-2 block">Deal Description</label>
         <textarea
           value={rawInput}
           onChange={(e) => setRawInput(e.target.value)}
-          placeholder="Describe the deal — include property address, buyer, seller, price, and any special terms. You can type or use the voice button above."
+          placeholder="Describe the deal — include property address, buyer, seller, price, and any special terms. Use your device's dictation (mic on keyboard) to speak instead of type."
           rows={8}
           className="w-full px-4 py-3 bg-dark-gray border border-border-gray rounded-card text-sm text-white
                      placeholder:text-medium-gray focus:border-green transition-colors resize-y leading-relaxed"
