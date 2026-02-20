@@ -5,6 +5,39 @@ import fs from "fs";
 import path from "path";
 import { CLAUSE_LIBRARY } from "@/lib/clause-library";
 
+/**
+ * Clean split XML tokens in .docx
+ * Word splits {{token_name}} across multiple XML runs due to spell-check,
+ * formatting changes, etc. This merges them back into clean {{token}} tags
+ * so docxtemplater can find them.
+ */
+function cleanSplitTokens(xml: string): string {
+  // Match {{ followed by any XML tags/content, then a token name, then any XML, then }}
+  // This regex finds patterns where {{ and }} are in separate <w:t> elements
+  // with XML noise (proofErr, formatting runs) in between
+  const splitPattern = new RegExp("\\{\\{(<\\/w:t>[\\s\\S]*?<w:t[^>]*>)([a-z_]+)(<\\/w:t>[\\s\\S]*?<w:t[^>]*>)\\}\\}", "g");
+
+  let cleaned = xml;
+
+  // Keep replacing until no more matches (handles nested cases)
+  let prev = "";
+  while (prev !== cleaned) {
+    prev = cleaned;
+    cleaned = cleaned.replace(splitPattern, "{{$2}}");
+  }
+
+  // Also handle the case where just the opening {{ or closing }} is split
+  // Pattern: {{</w:t></w:r>...<w:r>...<w:t>token_name</w:t></w:r>...<w:r>...<w:t>}}
+  const broadPattern = new RegExp("\\{\\{<\\/w:t><\\/w:r>[\\s\\S]*?<w:t[^>]*>([a-z_]+)<\\/w:t><\\/w:r>[\\s\\S]*?<w:t[^>]*>\\}\\}", "g");
+  prev = "";
+  while (prev !== cleaned) {
+    prev = cleaned;
+    cleaned = cleaned.replace(broadPattern, "{{$1}}");
+  }
+
+  return cleaned;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -49,6 +82,17 @@ export async function POST(request: NextRequest) {
     const templateContent = fs.readFileSync(templatePath);
     const zip = new PizZip(templateContent);
 
+    // Pre-clean the document XML to fix split tokens
+    const xmlFiles = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/footer1.xml", "word/footer2.xml"];
+    for (const xmlFile of xmlFiles) {
+      const file = zip.file(xmlFile);
+      if (file) {
+        const rawXml = file.asText();
+        const cleanedXml = cleanSplitTokens(rawXml);
+        zip.file(xmlFile, cleanedXml);
+      }
+    }
+
     // Configure docxtemplater with custom delimiters matching our {{token}} format
     const doc = new Docxtemplater(zip, {
       delimiters: { start: "{{", end: "}}" },
@@ -62,31 +106,19 @@ export async function POST(request: NextRequest) {
     const data: Record<string, string> = { ...variables };
 
     // Handle clause insertion markers
-    // Template has markers like {{clause_insert_closing_extension}}, {{clause_insert_optional_1}}, etc.
     if (clauses && Array.isArray(clauses)) {
-      // Process each clause
       const includedClauses = clauses.filter(
         (c: { included: boolean }) => c.included
       );
 
-      // For the closing_extension clause (standard logic clause)
-      const closingExt = includedClauses.find(
-        (c: { id: string }) => c.id === "closing_extension"
-      );
-      if (closingExt) {
-        // The closing extension variables are already in the main variables object
-        // The template handles this via its own {{extension_count}} etc. tokens
-        data.clause_insert_closing_extension = ""; // marker gets cleared, tokens handle the text
-      } else {
-        data.clause_insert_closing_extension = "";
-      }
+      // Clear closing extension marker (template uses the individual tokens directly)
+      data.clause_insert_closing_extension = "";
 
       // For optional clauses — insert into optional markers
       const optionalClauses = includedClauses.filter(
         (c: { id: string }) => c.id !== "closing_extension"
       );
 
-      // Build clause text from library definitions
       optionalClauses.forEach(
         (clause: { id: string; variables: Record<string, string>; customText?: string }, index: number) => {
           const clauseDef = CLAUSE_LIBRARY.find((c) => c.id === clause.id);
@@ -95,11 +127,8 @@ export async function POST(request: NextRequest) {
           if (clause.customText) {
             clauseText = clause.customText;
           } else if (clauseDef) {
-            // Replace clause-level variables in the template
             clauseText = clauseDef.template;
-            for (const [varToken, varValue] of Object.entries(
-              clause.variables || {}
-            )) {
+            for (const [varToken, varValue] of Object.entries(clause.variables || {})) {
               clauseText = clauseText.replace(
                 new RegExp(`\\{\\{${varToken}\\}\\}`, "g"),
                 varValue
@@ -107,7 +136,6 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Insert into optional markers
           const markerKey = `clause_insert_optional_${index + 1}`;
           data[markerKey] = clauseText;
         }
@@ -125,13 +153,12 @@ export async function POST(request: NextRequest) {
     // Render the document
     doc.render(data);
 
-    // Generate the output as a Uint8Array
+    // Generate the output
     const output = doc.getZip().generate({
       type: "uint8array",
       compression: "DEFLATE",
     });
 
-    // Return the .docx file as binary
     return new NextResponse(Buffer.from(output) as unknown as BodyInit, {
       status: 200,
       headers: {

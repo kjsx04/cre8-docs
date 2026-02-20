@@ -6,7 +6,7 @@ interface ReviewFieldProps {
   token: string;
   variable: ExtractedVariable;
   onChange: (token: string, value: string) => void;
-  isWrittenVariant?: boolean; // auto-generated field — show as readonly
+  isWrittenVariant?: boolean;
 }
 
 export default function ReviewField({
@@ -15,7 +15,18 @@ export default function ReviewField({
   onChange,
   isWrittenVariant = false,
 }: ReviewFieldProps) {
-  const showWarning = variable.flag || variable.confidence < 0.85;
+  const showWarning = !isWrittenVariant && (variable.flag || variable.confidence < 0.85);
+
+  // Written variants render as a small auto-generated label, not an input
+  if (isWrittenVariant) {
+    if (!variable.value) return null; // Don't show empty written fields
+    return (
+      <div className="flex items-center gap-2 -mt-2 ml-1">
+        <span className="text-xs text-medium-gray">Auto:</span>
+        <span className="text-xs text-border-gray italic">{variable.value}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-1">
@@ -38,21 +49,16 @@ export default function ReviewField({
       <input
         type="text"
         value={variable.value}
-        readOnly={isWrittenVariant}
         onChange={(e) => onChange(token, e.target.value)}
         className={`w-full px-3 py-2 rounded-btn text-sm text-white
-          border transition-colors duration-200
-          ${
-            isWrittenVariant
-              ? "bg-charcoal border-border-gray text-medium-gray cursor-not-allowed"
-              : "bg-dark-gray border-border-gray focus:border-green"
-          }
-          ${showWarning ? "border-yellow-500/50" : ""}
+          bg-dark-gray border transition-colors duration-200
+          focus:border-green
+          ${showWarning ? "border-yellow-500/50" : "border-border-gray"}
         `}
       />
 
       {/* Confidence bar */}
-      {!isWrittenVariant && variable.confidence > 0 && (
+      {variable.confidence > 0 && (
         <div className="flex items-center gap-2 mt-0.5">
           <div className="flex-1 h-1 bg-border-gray rounded-full overflow-hidden">
             <div
