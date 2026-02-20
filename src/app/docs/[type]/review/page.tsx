@@ -34,8 +34,30 @@ export default function ReviewPage() {
 
     const { result } = JSON.parse(stored);
 
-    // Set variables
-    setVariables(result.variables || {});
+    // Set variables and auto-compute all written variants on load
+    const vars = result.variables || {};
+    const varMap = getVariableMap(docType.id);
+
+    for (const varDef of varMap) {
+      if (varDef.numberField && varDef.writtenVariant && vars[varDef.token]) {
+        const rawValue = vars[varDef.token].value;
+        if (rawValue) {
+          const isDollar = varDef.token.includes("money") || varDef.token.includes("deposit") || varDef.token.includes("price");
+          const writtenValue = isDollar
+            ? dollarToWritten(rawValue)
+            : numberToWritten(rawValue);
+
+          vars[varDef.writtenVariant] = {
+            ...vars[varDef.writtenVariant],
+            value: writtenValue,
+            confidence: 1.0,
+            flag: false,
+          };
+        }
+      }
+    }
+
+    setVariables(vars);
 
     // Build clause states from detected clauses
     const clauseStates: ClauseState[] = (result.clauses || []).map(
