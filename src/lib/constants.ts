@@ -1,0 +1,125 @@
+import { DocType, VariableDef } from "./types";
+
+// ── Document Types ──
+
+export const DOC_TYPES: DocType[] = [
+  {
+    id: "loi_building",
+    name: "LOI — Building Purchase",
+    slug: "loi-building",
+    mode: "flexible",
+    description: "Letter of Intent for purchasing a commercial building",
+    templateFile: "loi-building-tokenized.docx",
+    sharePointFolder: "/CRE8 Advisors/Documents/LOIs/Building/",
+    enabled: true,
+  },
+  {
+    id: "loi_land",
+    name: "LOI — Land Purchase",
+    slug: "loi-land",
+    mode: "flexible",
+    description: "Letter of Intent for purchasing vacant land",
+    templateFile: "loi-land-tokenized.docx",
+    sharePointFolder: "/CRE8 Advisors/Documents/LOIs/Land/",
+    enabled: false,
+  },
+  {
+    id: "loi_lease",
+    name: "LOI — Lease",
+    slug: "loi-lease",
+    mode: "flexible",
+    description: "Letter of Intent for a commercial lease",
+    templateFile: "loi-lease-tokenized.docx",
+    sharePointFolder: "/CRE8 Advisors/Documents/LOIs/Lease/",
+    enabled: false,
+  },
+  {
+    id: "listing_sale",
+    name: "Listing Agreement — Sale",
+    slug: "listing-sale",
+    mode: "strict",
+    description: "Exclusive listing agreement for property sale",
+    templateFile: "sale-listing-agreement-tokenized.docx",
+    sharePointFolder: "/CRE8 Advisors/Documents/ListingAgreements/Sale/",
+    enabled: false,
+  },
+  {
+    id: "listing_lease",
+    name: "Listing Agreement — Lease",
+    slug: "listing-lease",
+    mode: "strict",
+    description: "Exclusive listing agreement for property lease",
+    templateFile: "lease-listing-agreement-tokenized.docx",
+    sharePointFolder: "/CRE8 Advisors/Documents/ListingAgreements/Lease/",
+    enabled: false,
+  },
+];
+
+// ── Helper to look up doc type by slug ──
+
+export function getDocTypeBySlug(slug: string): DocType | undefined {
+  return DOC_TYPES.find((d) => d.slug === slug);
+}
+
+// ── LOI Building Variable Map (30 tokens) ──
+
+export const LOI_BUILDING_VARIABLES: VariableDef[] = [
+  { token: "date", label: "Date", source: "auto", flag: false },
+  { token: "seller_broker_name", label: "Seller Broker Name", source: "cms_teams", flag: false },
+  { token: "seller_broker_company", label: "Seller Broker Company", source: "cms_teams", flag: false },
+  { token: "seller_broker_email", label: "Seller Broker Email", source: "cms_teams", flag: false },
+  { token: "property_address", label: "Property Address", source: "cms_listing", flag: false },
+  { token: "parcel_number", label: "Parcel Number(s)", source: "user_input", flag: true },
+  { token: "seller_entity", label: "Seller Entity", source: "user_input", flag: true },
+  { token: "buyer_entity", label: "Buyer Entity", source: "user_input", flag: true },
+  { token: "purchase_price", label: "Purchase Price ($)", source: "user_input", flag: true },
+  { token: "earnest_money", label: "Earnest Money ($)", source: "user_input", flag: true, numberField: true, writtenVariant: "earnest_money_written" },
+  { token: "earnest_money_written", label: "Earnest Money (written)", source: "auto", flag: true },
+  { token: "emd_days", label: "Days to Deposit EMD", source: "user_input", flag: false, defaultValue: "3", numberField: true, writtenVariant: "emd_days_written" },
+  { token: "emd_days_written", label: "Days to Deposit EMD (written)", source: "auto", flag: false },
+  { token: "title_company", label: "Title Company", source: "default", flag: false, defaultValue: "Fidelity National Title" },
+  { token: "title_agent", label: "Title Agent", source: "default", flag: false, defaultValue: "Kristina Gooding" },
+  { token: "psa_draft_days", label: "PSA Draft Days", source: "user_input", flag: false, defaultValue: "10", numberField: true, writtenVariant: "psa_draft_days_written" },
+  { token: "psa_draft_days_written", label: "PSA Draft Days (written)", source: "auto", flag: false },
+  { token: "closing_period", label: "Closing Period (days)", source: "user_input", flag: false, defaultValue: "30", numberField: true, writtenVariant: "closing_period_written" },
+  { token: "closing_period_written", label: "Closing Period (written)", source: "auto", flag: false },
+  { token: "extension_count", label: "Extension Count", source: "user_input", flag: false, defaultValue: "1", numberField: true, writtenVariant: "extension_count_written" },
+  { token: "extension_count_written", label: "Extension Count (written)", source: "auto", flag: false },
+  { token: "extension_days", label: "Extension Days", source: "user_input", flag: false, defaultValue: "30", numberField: true, writtenVariant: "extension_days_written" },
+  { token: "extension_days_written", label: "Extension Days (written)", source: "auto", flag: false },
+  { token: "extension_deposit", label: "Extension Deposit ($)", source: "user_input", flag: false },
+  { token: "seller_disclosures_days", label: "Seller Disclosures Days", source: "user_input", flag: false, defaultValue: "5", numberField: true, writtenVariant: "seller_disclosures_days_written" },
+  { token: "seller_disclosures_days_written", label: "Seller Disclosures Days (written)", source: "auto", flag: false },
+  { token: "dd_period", label: "Due Diligence Period (days)", source: "user_input", flag: false, defaultValue: "90", numberField: true, writtenVariant: "dd_period_written" },
+  { token: "dd_period_written", label: "Due Diligence Period (written)", source: "auto", flag: false },
+  { token: "broker_names", label: "CRE8 Broker Name(s)", source: "cms_teams", flag: false },
+  { token: "commission_pct", label: "Commission %", source: "user_input", flag: false, defaultValue: "3%" },
+  { token: "cre8_agent_email", label: "CRE8 Agent Email", source: "cms_teams", flag: false },
+  { token: "cre8_agent_phone", label: "CRE8 Agent Phone", source: "cms_teams", flag: false },
+];
+
+// ── Variable map lookup by doc type ──
+
+export function getVariableMap(docType: string): VariableDef[] {
+  switch (docType) {
+    case "loi_building":
+      return LOI_BUILDING_VARIABLES;
+    default:
+      return LOI_BUILDING_VARIABLES; // fallback for now
+  }
+}
+
+// ── Webflow CMS API endpoint (via Cloudflare Worker) ──
+
+export const CMS_API_BASE = "https://cre8-worker.kevinsmith-dpe.workers.dev";
+
+// ── Webflow Collection IDs ──
+
+export const WEBFLOW_COLLECTIONS = {
+  listings: "6987a8f4b3f7f93734096b4b",
+  teams: "6987ab2475108817b767c3e0",
+};
+
+// ── SharePoint ──
+
+export const SP_SITE_URL = "https://cre8advisors.sharepoint.com/sites/CRE8Operations";
