@@ -482,16 +482,19 @@ export default function CompletePage() {
       }
     }
 
-    // Compute written variants for defaulted number fields
+    // Format currency and compute written variants for defaulted number fields
     for (const varDef of varDefs) {
-      if (varDef.numberField && varDef.writtenVariant && defaults[varDef.token]) {
+      if (varDef.numberField && defaults[varDef.token]) {
         const isDollar =
           varDef.token.includes("money") ||
           varDef.token.includes("deposit") ||
           varDef.token.includes("price");
         if (isDollar) {
-          defaults[varDef.writtenVariant] = dollarToWritten(defaults[varDef.token]);
-        } else {
+          defaults[varDef.token] = formatCurrency(defaults[varDef.token]);
+          if (varDef.writtenVariant) {
+            defaults[varDef.writtenVariant] = dollarToWritten(defaults[varDef.token]);
+          }
+        } else if (varDef.writtenVariant) {
           defaults[varDef.writtenVariant] = numberToWritten(defaults[varDef.token]);
         }
       }
@@ -507,7 +510,7 @@ export default function CompletePage() {
       .replace(/\s+/g, "_")
       .substring(0, 50);
     const dateStr = new Date().toISOString().split("T")[0];
-    return `LOI_Building_${address}_${dateStr}.docx`;
+    return `LOI_${address}_${dateStr}.docx`;
   }, []);
 
   // ── Initialize: load from sessionStorage OR build defaults ──
@@ -776,19 +779,20 @@ export default function CompletePage() {
       setFieldValues((prev) => {
         const updated = { ...prev, [token]: value };
 
-        // Auto-compute written variants for number fields
+        // Auto-format currency and compute written variants for number fields
         const def = varMap.get(token);
-        if (def?.numberField && def.writtenVariant) {
+        if (def?.numberField) {
           const isDollar =
             token.includes("money") ||
             token.includes("deposit") ||
             token.includes("price");
 
           if (isDollar) {
-            const formatted = formatCurrency(value);
-            updated[token] = formatted;
-            updated[def.writtenVariant] = dollarToWritten(value);
-          } else {
+            updated[token] = formatCurrency(value);
+            if (def.writtenVariant) {
+              updated[def.writtenVariant] = dollarToWritten(value);
+            }
+          } else if (def.writtenVariant) {
             updated[def.writtenVariant] = numberToWritten(value);
           }
         }
@@ -907,18 +911,20 @@ export default function CompletePage() {
 
       if (fieldsToAnimate.length === 0) return;
 
-      // Compute written variants for extracted number fields
+      // Format currency and compute written variants for extracted number fields
       const allVars: Record<string, string> = { ...extractedVars };
       for (const varDef of varDefs) {
-        if (varDef.numberField && varDef.writtenVariant && allVars[varDef.token]) {
+        if (varDef.numberField && allVars[varDef.token]) {
           const isDollar =
             varDef.token.includes("money") ||
             varDef.token.includes("deposit") ||
             varDef.token.includes("price");
           if (isDollar) {
             allVars[varDef.token] = formatCurrency(allVars[varDef.token]);
-            allVars[varDef.writtenVariant] = dollarToWritten(extractedVars[varDef.token]);
-          } else {
+            if (varDef.writtenVariant) {
+              allVars[varDef.writtenVariant] = dollarToWritten(extractedVars[varDef.token]);
+            }
+          } else if (varDef.writtenVariant) {
             allVars[varDef.writtenVariant] = numberToWritten(extractedVars[varDef.token]);
           }
         }
