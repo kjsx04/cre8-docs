@@ -214,3 +214,6 @@ export const WEBFLOW_COLLECTIONS = {
 // ── SharePoint ──
 
 export const SP_SITE_URL = "https://cre8advisors.sharepoint.com/sites/CRE8Operations";
+
+// Default save location for generated documents
+export const SP_DRAFTS_FOLDER = "/CRE8 Advisors/Documents/Drafts/";

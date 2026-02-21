@@ -93,3 +93,87 @@ export function getWordUrl(sharePointUrl: string): string {
   // ms-word protocol handler opens the file in Word desktop
   return `ms-word:ofe|u|${sharePointUrl}`;
 }
+
+// ── Folder browsing helpers ──
+
+export interface FolderItem {
+  id: string;
+  name: string;
+  isFolder: boolean;
+  webUrl: string;
+}
+
+/**
+ * List children (folders only) of a SharePoint folder.
+ * Pass folderPath like "/CRE8 Advisors/Documents" or "" for the drive root.
+ */
+export async function listFolderChildren(
+  accessToken: string,
+  driveId: string,
+  folderPath: string
+): Promise<FolderItem[]> {
+  // Build the endpoint — root vs. subpath
+  const cleanPath = folderPath.replace(/^\/+/, "").replace(/\/+$/, "");
+  const endpoint = cleanPath
+    ? `${GRAPH_BASE}/drives/${driveId}/root:/${encodeURIComponent(cleanPath).replace(/%2F/g, "/")}:/children`
+    : `${GRAPH_BASE}/drives/${driveId}/root/children`;
+
+  // Filter to only folders, sort alphabetically
+  const url = `${endpoint}?$filter=folder ne null&$orderby=name&$top=100`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to list folders: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return (data.value || []).map((item: Record<string, unknown>) => ({
+    id: item.id as string,
+    name: item.name as string,
+    isFolder: true,
+    webUrl: item.webUrl as string,
+  }));
+}
+
+/**
+ * Create a folder in SharePoint. Graph API auto-creates parent folders.
+ * Returns the created folder's web URL.
+ */
+export async function createFolder(
+  accessToken: string,
+  driveId: string,
+  parentPath: string,
+  folderName: string
+): Promise<string> {
+  const cleanParent = parentPath.replace(/^\/+/, "").replace(/\/+$/, "");
+  const endpoint = cleanParent
+    ? `${GRAPH_BASE}/drives/${driveId}/root:/${encodeURIComponent(cleanParent).replace(/%2F/g, "/")}:/children`
+    : `${GRAPH_BASE}/drives/${driveId}/root/children`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: folderName,
+      folder: {},
+      "@microsoft.graph.conflictBehavior": "fail",
+    }),
+  });
+
+  if (!response.ok) {
+    // 409 = already exists, which is fine
+    if (response.status === 409) {
+      return "";
+    }
+    throw new Error(`Failed to create folder: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.webUrl;
+}

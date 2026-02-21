@@ -46,3 +46,27 @@ select:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--medium-gray);
 }
+
+/* docx-preview overrides — white document inside dark UI */
+.docx-preview-container {
+  background: white;
+  border-radius: 8px;
+  overflow-y: auto;
+  max-height: 500px;
+}
+.docx-preview-container ::-webkit-scrollbar-track {
+  background: #f0f0f0;
+}
+.docx-preview-container ::-webkit-scrollbar-thumb {
+  background: #ccc;
+}
+/* Remove any extra margin docx-preview adds to the wrapper */
+.docx-preview-container .docx-wrapper {
+  background: white !important;
+  padding: 16px !important;
+}
+/* Ensure article (rendered page) looks clean */
+.docx-preview-container .docx-wrapper > section.docx {
+  box-shadow: none !important;
+  margin-bottom: 0 !important;
+}
