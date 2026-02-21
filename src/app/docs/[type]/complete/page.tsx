@@ -1252,6 +1252,11 @@ export default function CompletePage() {
 
           {fileBase64 && <DocPreview fileBase64={fileBase64} />}
 
+          {/* Preview background note */}
+          <p className="text-medium-gray text-xs mt-2">
+            Template backgrounds will appear in the downloaded file.
+          </p>
+
           {/* File name below preview */}
           {fileName && (
             <p className="text-medium-gray text-xs mt-2 truncate">{fileName}</p>

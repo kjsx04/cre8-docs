@@ -26,21 +26,10 @@ export default function DocTypeCard({ docType }: DocTypeCardProps) {
             : "bg-charcoal border-border-gray opacity-50 cursor-not-allowed"
         }`}
     >
-      {/* Mode badge + Coming Soon */}
-      <div className="flex items-center gap-2 mb-3">
-        <span
-          className={`text-xs font-semibold px-2 py-0.5 rounded ${
-            docType.mode === "flexible"
-              ? "bg-green/15 text-green"
-              : "bg-white/10 text-medium-gray"
-          }`}
-        >
-          {docType.mode === "flexible" ? "Flexible" : "Strict"}
-        </span>
-        {!docType.enabled && (
-          <span className="text-xs text-medium-gray">Coming Soon</span>
-        )}
-      </div>
+      {/* Coming Soon indicator for disabled cards */}
+      {!docType.enabled && (
+        <span className="text-xs text-medium-gray mb-3 block">Coming Soon</span>
+      )}
 
       {/* Name */}
       <h3 className="text-white font-semibold text-lg mb-1">{docType.name}</h3>

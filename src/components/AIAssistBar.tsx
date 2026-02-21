@@ -188,7 +188,7 @@ export default function AIAssistBar({
                     <path d="M2 17l10 5 10-5" />
                     <path d="M2 12l10 5 10-5" />
                   </svg>
-                  Extract
+                  Update LOI
                 </>
               )}
             </button>
@@ -237,8 +237,8 @@ export default function AIAssistBar({
           )}
 
           {/* Helper text */}
-          <p className="text-border-gray text-xs">
-            Tip: Use your keyboard mic button for voice dictation.
+          <p className="text-medium-gray text-xs">
+            Voice dictation available.
           </p>
         </div>
       )}
