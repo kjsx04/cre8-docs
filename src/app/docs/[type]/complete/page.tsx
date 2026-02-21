@@ -8,9 +8,10 @@ import {
   getVariableMap,
   getFieldSections,
   SP_DRAFTS_FOLDER,
+  CMS_API_BASE,
   FieldSection,
 } from "@/lib/constants";
-import { VariableDef } from "@/lib/types";
+import { VariableDef, CmsTeamMember, CmsListing } from "@/lib/types";
 import { graphScopes } from "@/lib/msal-config";
 import {
   getSiteId,
@@ -27,6 +28,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import DocPreview from "@/components/DocPreview";
 import FolderPicker from "@/components/FolderPicker";
 import SharePointBreadcrumb from "@/components/SharePointBreadcrumb";
+import AIAssistBar from "@/components/AIAssistBar";
 
 type PageState = "preview" | "saving" | "saved" | "error";
 
@@ -40,12 +42,16 @@ function CollapsibleSection({
   writtenTokens,
   fieldValues,
   onFieldChange,
+  aiFillingTokens,
+  sectionRef,
 }: {
   section: FieldSection;
   varMap: Map<string, VariableDef>;
   writtenTokens: Set<string>;
   fieldValues: Record<string, string>;
   onFieldChange: (token: string, value: string) => void;
+  aiFillingTokens: Set<string>;
+  sectionRef?: (title: string, el: HTMLDivElement | null) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
 
@@ -57,8 +63,19 @@ function CollapsibleSection({
     (t) => fieldValues[t] && fieldValues[t].trim() !== ""
   ).length;
 
+  // Auto-expand if any token in this section is being AI-filled
+  useEffect(() => {
+    const hasFillingToken = editableTokens.some((t) => aiFillingTokens.has(t));
+    if (hasFillingToken && !expanded) {
+      setExpanded(true);
+    }
+  }, [aiFillingTokens, editableTokens, expanded]);
+
   return (
-    <div className="bg-dark-gray border border-border-gray rounded-card overflow-hidden">
+    <div
+      ref={(el) => sectionRef?.(section.title, el)}
+      className="bg-dark-gray border border-border-gray rounded-card overflow-hidden"
+    >
       {/* Section header — click to expand/collapse */}
       <button
         onClick={() => setExpanded(!expanded)}
@@ -91,8 +108,14 @@ function CollapsibleSection({
           {editableTokens.map((token) => {
             const def = varMap.get(token);
             const label = def?.label || token.replace(/_/g, " ");
+            const isFilling = aiFillingTokens.has(token);
             return (
-              <div key={token}>
+              <div
+                key={token}
+                className={`transition-all duration-300 ${
+                  isFilling ? "ai-filling" : ""
+                }`}
+              >
                 <label className="block text-medium-gray text-xs mb-1">
                   {label}
                 </label>
@@ -100,8 +123,13 @@ function CollapsibleSection({
                   type="text"
                   value={fieldValues[token] || ""}
                   onChange={(e) => onFieldChange(token, e.target.value)}
-                  className="w-full bg-charcoal border border-border-gray rounded px-3 py-1.5
-                             text-white text-sm focus:border-green transition-colors"
+                  className={`w-full bg-charcoal border rounded px-3 py-1.5
+                             text-white text-sm transition-all duration-300
+                             focus:border-green
+                             ${isFilling
+                               ? "border-green shadow-[0_0_8px_rgba(140,198,68,0.3)]"
+                               : "border-border-gray"
+                             }`}
                 />
               </div>
             );
@@ -112,25 +140,208 @@ function CollapsibleSection({
   );
 }
 
-// ── Field Sidebar ──
+// ── CMS Dropdowns section (collapsible) ──
+function CmsDropdowns({
+  teamMembers,
+  listings,
+  loadingCms,
+  selectedCre8Broker,
+  selectedSellerBroker,
+  selectedListing,
+  onCre8BrokerChange,
+  onSellerBrokerChange,
+  onListingChange,
+}: {
+  teamMembers: CmsTeamMember[];
+  listings: CmsListing[];
+  loadingCms: boolean;
+  selectedCre8Broker: string;
+  selectedSellerBroker: string;
+  selectedListing: string;
+  onCre8BrokerChange: (id: string) => void;
+  onSellerBrokerChange: (id: string) => void;
+  onListingChange: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <div className="bg-dark-gray border border-border-gray rounded-card overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-charcoal transition-colors"
+      >
+        <span className="text-white text-sm font-semibold">Brokers & Listing</span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className={`text-medium-gray transition-transform duration-200 ${
+            expanded ? "rotate-180" : ""
+          }`}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-3 space-y-3">
+          {/* CRE8 Broker */}
+          <div>
+            <label className="block text-medium-gray text-xs mb-1">CRE8 Broker (you)</label>
+            <select
+              value={selectedCre8Broker}
+              onChange={(e) => onCre8BrokerChange(e.target.value)}
+              disabled={loadingCms}
+              className="w-full bg-charcoal border border-border-gray rounded px-3 py-1.5
+                         text-white text-sm focus:border-green transition-colors
+                         disabled:opacity-50"
+            >
+              <option value="">Select broker...</option>
+              {teamMembers.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Seller Broker */}
+          <div>
+            <label className="block text-medium-gray text-xs mb-1">
+              Seller Broker <span className="text-border-gray">(optional)</span>
+            </label>
+            <select
+              value={selectedSellerBroker}
+              onChange={(e) => onSellerBrokerChange(e.target.value)}
+              disabled={loadingCms}
+              className="w-full bg-charcoal border border-border-gray rounded px-3 py-1.5
+                         text-white text-sm focus:border-green transition-colors
+                         disabled:opacity-50"
+            >
+              <option value="">Select or type in AI bar...</option>
+              {teamMembers.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* CRE8 Listing */}
+          <div>
+            <label className="block text-medium-gray text-xs mb-1">
+              CRE8 Listing <span className="text-border-gray">(pre-fills address)</span>
+            </label>
+            <select
+              value={selectedListing}
+              onChange={(e) => onListingChange(e.target.value)}
+              disabled={loadingCms}
+              className="w-full bg-charcoal border border-border-gray rounded px-3 py-1.5
+                         text-white text-sm focus:border-green transition-colors
+                         disabled:opacity-50"
+            >
+              <option value="">None</option>
+              {listings.map((l) => (
+                <option key={l.id} value={l.id}>{l.name || l.address}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Field Sidebar — now includes AI bar + CMS dropdowns + field sections ──
 function FieldSidebar({
+  docTypeId,
   sections,
   writtenTokens,
   varMap,
   fieldValues,
   onFieldChange,
+  aiFillingTokens,
+  sectionRefs,
+  // AI bar props
+  cmsContext,
+  onExtracted,
+  onExtracting,
+  // CMS dropdown props
+  teamMembers,
+  listings,
+  loadingCms,
+  selectedCre8Broker,
+  selectedSellerBroker,
+  selectedListing,
+  onCre8BrokerChange,
+  onSellerBrokerChange,
+  onListingChange,
+  isAiExtracting,
 }: {
+  docTypeId: string;
   sections: FieldSection[];
   writtenTokens: Set<string>;
   varMap: Map<string, VariableDef>;
   fieldValues: Record<string, string>;
   onFieldChange: (token: string, value: string) => void;
+  aiFillingTokens: Set<string>;
+  sectionRefs: (title: string, el: HTMLDivElement | null) => void;
+  cmsContext: {
+    sellerBroker: { name: string; email: string; phone: string } | null;
+    cre8Broker: { name: string; email: string; phone: string } | null;
+    listing: { name: string; address: string } | null;
+  };
+  onExtracted: (variables: Record<string, string>) => void;
+  onExtracting: (isExtracting: boolean) => void;
+  teamMembers: CmsTeamMember[];
+  listings: CmsListing[];
+  loadingCms: boolean;
+  selectedCre8Broker: string;
+  selectedSellerBroker: string;
+  selectedListing: string;
+  onCre8BrokerChange: (id: string) => void;
+  onSellerBrokerChange: (id: string) => void;
+  onListingChange: (id: string) => void;
+  isAiExtracting: boolean;
 }) {
   return (
     <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: "calc(100vh - 180px)" }}>
+      {/* AI Assist Bar */}
+      <AIAssistBar
+        docTypeId={docTypeId}
+        cmsContext={cmsContext}
+        onExtracted={onExtracted}
+        onExtracting={onExtracting}
+      />
+
+      {/* CMS Dropdowns */}
+      <CmsDropdowns
+        teamMembers={teamMembers}
+        listings={listings}
+        loadingCms={loadingCms}
+        selectedCre8Broker={selectedCre8Broker}
+        selectedSellerBroker={selectedSellerBroker}
+        selectedListing={selectedListing}
+        onCre8BrokerChange={onCre8BrokerChange}
+        onSellerBrokerChange={onSellerBrokerChange}
+        onListingChange={onListingChange}
+      />
+
+      {/* Shimmer overlay when AI is extracting */}
+      {isAiExtracting && (
+        <div className="text-center py-2">
+          <div className="inline-flex items-center gap-2 text-green text-xs">
+            <div className="w-3 h-3 border-2 border-green border-t-transparent rounded-full animate-spin" />
+            AI is analyzing...
+          </div>
+        </div>
+      )}
+
+      {/* Section header */}
       <h2 className="font-bebas text-lg tracking-wide text-medium-gray mb-1">
         EDIT FIELDS
       </h2>
+
+      {/* Field sections */}
       {sections.map((section) => (
         <CollapsibleSection
           key={section.title}
@@ -139,6 +350,8 @@ function FieldSidebar({
           writtenTokens={writtenTokens}
           fieldValues={fieldValues}
           onFieldChange={onFieldChange}
+          aiFillingTokens={aiFillingTokens}
+          sectionRef={sectionRefs}
         />
       ))}
     </div>
@@ -161,6 +374,7 @@ export default function CompletePage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [fileName, setFileName] = useState("");
   const [fileBase64, setFileBase64] = useState("");
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // Field editing state
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
@@ -168,6 +382,18 @@ export default function CompletePage() {
     { id: string; included: boolean; variables: Record<string, string>; customText?: string }[]
   >([]);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isAiExtracting, setIsAiExtracting] = useState(false);
+
+  // AI animation state — tracks which tokens are currently being animated
+  const [aiFillingTokens, setAiFillingTokens] = useState<Set<string>>(new Set());
+
+  // CMS data
+  const [teamMembers, setTeamMembers] = useState<CmsTeamMember[]>([]);
+  const [listings, setListings] = useState<CmsListing[]>([]);
+  const [loadingCms, setLoadingCms] = useState(true);
+  const [selectedCre8Broker, setSelectedCre8Broker] = useState("");
+  const [selectedSellerBroker, setSelectedSellerBroker] = useState("");
+  const [selectedListing, setSelectedListing] = useState("");
 
   // Ref that mirrors fieldValues — the debounced callback reads from here
   // to always get the latest values (avoids stale closure)
@@ -175,6 +401,19 @@ export default function CompletePage() {
 
   // Debounce timer ref
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Track if initial generation has been triggered
+  const initialGenTriggered = useRef(false);
+
+  // Section element refs for scrolling during AI animation
+  const sectionElRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const sectionRefCallback = useCallback((title: string, el: HTMLDivElement | null) => {
+    if (el) {
+      sectionElRefs.current.set(title, el);
+    } else {
+      sectionElRefs.current.delete(title);
+    }
+  }, []);
 
   // Save folder — check localStorage first, then fall back to constant
   const [saveFolder, setSaveFolder] = useState(() => {
@@ -209,29 +448,219 @@ export default function CompletePage() {
     [varDefs]
   );
 
-  // ── Load generated file + payload from sessionStorage on mount ──
+  // ── Build CMS context for AI bar (derived from selected dropdowns) ──
+  const cmsContext = useMemo(() => {
+    const cre8Broker = teamMembers.find((m) => m.id === selectedCre8Broker);
+    const sellerBroker = teamMembers.find((m) => m.id === selectedSellerBroker);
+    const listing = listings.find((l) => l.id === selectedListing);
+    return {
+      cre8Broker: cre8Broker ? { name: cre8Broker.name, email: cre8Broker.email, phone: cre8Broker.phone } : null,
+      sellerBroker: sellerBroker ? { name: sellerBroker.name, email: sellerBroker.email, phone: sellerBroker.phone } : null,
+      listing: listing ? { name: listing.name, address: listing.address } : null,
+    };
+  }, [teamMembers, listings, selectedCre8Broker, selectedSellerBroker, selectedListing]);
+
+  // ── Build default field values from variable definitions ──
+  const buildDefaultValues = useCallback(() => {
+    const defaults: Record<string, string> = {};
+
+    // Today's date formatted
+    const today = new Date();
+    const dateFormatted = today.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    for (const varDef of varDefs) {
+      if (varDef.token === "date") {
+        defaults[varDef.token] = dateFormatted;
+      } else if (varDef.defaultValue) {
+        defaults[varDef.token] = varDef.defaultValue;
+      } else {
+        defaults[varDef.token] = "";
+      }
+    }
+
+    // Compute written variants for defaulted number fields
+    for (const varDef of varDefs) {
+      if (varDef.numberField && varDef.writtenVariant && defaults[varDef.token]) {
+        const isDollar =
+          varDef.token.includes("money") ||
+          varDef.token.includes("deposit") ||
+          varDef.token.includes("price");
+        if (isDollar) {
+          defaults[varDef.writtenVariant] = dollarToWritten(defaults[varDef.token]);
+        } else {
+          defaults[varDef.writtenVariant] = numberToWritten(defaults[varDef.token]);
+        }
+      }
+    }
+
+    return defaults;
+  }, [varDefs]);
+
+  // ── Generate a file name from current field values ──
+  const buildFileName = useCallback((values: Record<string, string>) => {
+    const address = (values.property_address || "Draft")
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .replace(/\s+/g, "_")
+      .substring(0, 50);
+    const dateStr = new Date().toISOString().split("T")[0];
+    return `LOI_Building_${address}_${dateStr}.docx`;
+  }, []);
+
+  // ── Initialize: load from sessionStorage OR build defaults ──
   useEffect(() => {
     if (!docType) return;
 
-    // Load the generated doc (base64 + filename)
+    // Check sessionStorage for existing payload (back-navigation or refresh case)
     const storedDoc = sessionStorage.getItem(`generated_${docType.id}`);
-    if (!storedDoc) {
-      router.push(`/docs/${slug}`);
-      return;
-    }
-    const parsedDoc = JSON.parse(storedDoc);
-    setFileName(parsedDoc.fileName);
-    setFileBase64(parsedDoc.fileBase64);
-
-    // Load the generate payload (field values + clauses)
     const storedPayload = sessionStorage.getItem(`generate_payload_${docType.id}`);
-    if (storedPayload) {
+
+    if (storedDoc && storedPayload) {
+      // Restore from sessionStorage
+      const parsedDoc = JSON.parse(storedDoc);
       const parsedPayload = JSON.parse(storedPayload);
+      setFileName(parsedDoc.fileName);
+      setFileBase64(parsedDoc.fileBase64);
       setFieldValues(parsedPayload.variables || {});
       fieldValuesRef.current = parsedPayload.variables || {};
       setClausePayload(parsedPayload.clauses || []);
+      setInitialLoading(false);
+    } else {
+      // Fresh visit — build defaults and generate initial preview
+      const defaults = buildDefaultValues();
+      setFieldValues(defaults);
+      fieldValuesRef.current = defaults;
+      setFileName(buildFileName(defaults));
+
+      // Generate the initial preview with defaults
+      if (!initialGenTriggered.current) {
+        initialGenTriggered.current = true;
+        generateInitialPreview(defaults);
+      }
     }
-  }, [docType, slug, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docType]);
+
+  // ── Generate the first preview on mount ──
+  async function generateInitialPreview(defaults: Record<string, string>) {
+    if (!docType) return;
+
+    try {
+      const res = await fetch("/api/docs/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          docType: docType.id,
+          variables: defaults,
+          clauses: [],
+        }),
+      });
+
+      if (!res.ok) throw new Error("Initial generation failed");
+
+      const blob = await res.blob();
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setFileBase64(base64);
+        setInitialLoading(false);
+
+        // Cache in sessionStorage
+        const fName = buildFileName(defaults);
+        setFileName(fName);
+        sessionStorage.setItem(
+          `generated_${docType.id}`,
+          JSON.stringify({ fileBase64: base64, fileName: fName, docType: docType.id })
+        );
+        sessionStorage.setItem(
+          `generate_payload_${docType.id}`,
+          JSON.stringify({ variables: defaults, clauses: [] })
+        );
+      };
+      reader.readAsDataURL(blob);
+    } catch (err) {
+      console.error("Initial preview generation error:", err);
+      setInitialLoading(false);
+    }
+  }
+
+  // ── Fetch CMS data (teams + listings) ──
+  useEffect(() => {
+    async function fetchCmsData() {
+      try {
+        const [teamsRes, listingsRes] = await Promise.all([
+          fetch(`${CMS_API_BASE}/teams`),
+          fetch(`${CMS_API_BASE}/listings`),
+        ]);
+
+        if (teamsRes.ok) {
+          const teamsData = await teamsRes.json();
+          const members: CmsTeamMember[] = (teamsData.items || []).map(
+            (item: Record<string, unknown>) => ({
+              id: item.id || (item as Record<string, unknown>)._id,
+              name: (item as Record<string, Record<string, string>>).fieldData?.name || (item as Record<string, string>).name || "",
+              email: (item as Record<string, Record<string, string>>).fieldData?.email || (item as Record<string, string>).email || "",
+              phone: (item as Record<string, Record<string, string>>).fieldData?.phone || (item as Record<string, string>).phone || "",
+            })
+          );
+          setTeamMembers(members);
+        }
+
+        if (listingsRes.ok) {
+          const listingsData = await listingsRes.json();
+          const items: CmsListing[] = (listingsData.items || []).map(
+            (item: Record<string, unknown>) => ({
+              id: item.id || (item as Record<string, unknown>)._id,
+              name: (item as Record<string, Record<string, string>>).fieldData?.name || (item as Record<string, string>).name || "",
+              address: (item as Record<string, Record<string, string>>).fieldData?.["property-address"] ||
+                       (item as Record<string, string>)["property-address"] || "",
+              slug: (item as Record<string, Record<string, string>>).fieldData?.slug || (item as Record<string, string>).slug || "",
+            })
+          );
+          setListings(items);
+        }
+      } catch (err) {
+        console.error("Error fetching CMS data:", err);
+      } finally {
+        setLoadingCms(false);
+      }
+    }
+
+    fetchCmsData();
+  }, []);
+
+  // ── Auto-detect logged-in broker from MSAL account ──
+  useEffect(() => {
+    if (teamMembers.length === 0) return;
+
+    const account = instance.getActiveAccount() || accounts[0];
+    if (!account?.username) return;
+
+    // Match the MSAL email against team members
+    const email = account.username.toLowerCase();
+    const match = teamMembers.find((m) => m.email.toLowerCase() === email);
+
+    if (match && !selectedCre8Broker) {
+      setSelectedCre8Broker(match.id);
+      // Auto-fill broker fields
+      setFieldValues((prev) => {
+        const updated = {
+          ...prev,
+          broker_names: match.name,
+          cre8_agent_email: match.email,
+          cre8_agent_phone: match.phone,
+        };
+        fieldValuesRef.current = updated;
+        return updated;
+      });
+      // Trigger a regen so the preview shows the broker info
+      triggerDebouncedRegen();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamMembers, accounts]);
 
   // ── Pre-fetch Graph API token and drive ID ──
   useEffect(() => {
@@ -306,12 +735,16 @@ export default function CompletePage() {
         setFileBase64(base64);
         setIsRegenerating(false);
 
+        // Update filename based on current address
+        const fName = buildFileName(currentValues);
+        setFileName(fName);
+
         // Also update sessionStorage so a page refresh keeps the latest version
         sessionStorage.setItem(
           `generated_${docType.id}`,
           JSON.stringify({
             fileBase64: base64,
-            fileName,
+            fileName: fName,
             docType: docType.id,
           })
         );
@@ -325,7 +758,17 @@ export default function CompletePage() {
       console.error("Regeneration error:", err);
       setIsRegenerating(false);
     }
-  }, [docType, clausePayload, fileName]);
+  }, [docType, clausePayload, buildFileName]);
+
+  // ── Helper to trigger a debounced regen ──
+  const triggerDebouncedRegen = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      regenerateDocument();
+    }, 1500);
+  }, [regenerateDocument]);
 
   // ── Handle a field value change (with debounced regen) ──
   const handleFieldChange = useCallback(
@@ -356,14 +799,174 @@ export default function CompletePage() {
       });
 
       // Start/reset the 1.5s debounce timer for regeneration
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-      debounceRef.current = setTimeout(() => {
-        regenerateDocument();
-      }, 1500);
+      triggerDebouncedRegen();
     },
-    [varMap, regenerateDocument]
+    [varMap, triggerDebouncedRegen]
+  );
+
+  // ── Handle CRE8 Broker dropdown change ──
+  const handleCre8BrokerChange = useCallback(
+    (id: string) => {
+      setSelectedCre8Broker(id);
+      const member = teamMembers.find((m) => m.id === id);
+      if (member) {
+        setFieldValues((prev) => {
+          const updated = {
+            ...prev,
+            broker_names: member.name,
+            cre8_agent_email: member.email,
+            cre8_agent_phone: member.phone,
+          };
+          fieldValuesRef.current = updated;
+          return updated;
+        });
+        triggerDebouncedRegen();
+      } else {
+        // Cleared selection
+        setFieldValues((prev) => {
+          const updated = {
+            ...prev,
+            broker_names: "",
+            cre8_agent_email: "",
+            cre8_agent_phone: "",
+          };
+          fieldValuesRef.current = updated;
+          return updated;
+        });
+        triggerDebouncedRegen();
+      }
+    },
+    [teamMembers, triggerDebouncedRegen]
+  );
+
+  // ── Handle Seller Broker dropdown change ──
+  const handleSellerBrokerChange = useCallback(
+    (id: string) => {
+      setSelectedSellerBroker(id);
+      const member = teamMembers.find((m) => m.id === id);
+      if (member) {
+        setFieldValues((prev) => {
+          const updated = {
+            ...prev,
+            seller_broker_name: member.name,
+            seller_broker_company: "",
+            seller_broker_email: member.email,
+          };
+          fieldValuesRef.current = updated;
+          return updated;
+        });
+        triggerDebouncedRegen();
+      } else {
+        setFieldValues((prev) => {
+          const updated = {
+            ...prev,
+            seller_broker_name: "",
+            seller_broker_company: "",
+            seller_broker_email: "",
+          };
+          fieldValuesRef.current = updated;
+          return updated;
+        });
+        triggerDebouncedRegen();
+      }
+    },
+    [teamMembers, triggerDebouncedRegen]
+  );
+
+  // ── Handle Listing dropdown change ──
+  const handleListingChange = useCallback(
+    (id: string) => {
+      setSelectedListing(id);
+      const listing = listings.find((l) => l.id === id);
+      if (listing) {
+        setFieldValues((prev) => {
+          const updated = { ...prev, property_address: listing.address };
+          fieldValuesRef.current = updated;
+          return updated;
+        });
+        triggerDebouncedRegen();
+      } else {
+        setFieldValues((prev) => {
+          const updated = { ...prev, property_address: "" };
+          fieldValuesRef.current = updated;
+          return updated;
+        });
+        triggerDebouncedRegen();
+      }
+    },
+    [listings, triggerDebouncedRegen]
+  );
+
+  // ── Handle AI extraction result — staggered field animation ──
+  const handleAiExtracted = useCallback(
+    (extractedVars: Record<string, string>) => {
+      // Build list of fields that have non-empty values from AI
+      const fieldsToAnimate = Object.entries(extractedVars).filter(
+        ([, value]) => value && value.trim() !== ""
+      );
+
+      if (fieldsToAnimate.length === 0) return;
+
+      // Compute written variants for extracted number fields
+      const allVars: Record<string, string> = { ...extractedVars };
+      for (const varDef of varDefs) {
+        if (varDef.numberField && varDef.writtenVariant && allVars[varDef.token]) {
+          const isDollar =
+            varDef.token.includes("money") ||
+            varDef.token.includes("deposit") ||
+            varDef.token.includes("price");
+          if (isDollar) {
+            allVars[varDef.token] = formatCurrency(allVars[varDef.token]);
+            allVars[varDef.writtenVariant] = dollarToWritten(extractedVars[varDef.token]);
+          } else {
+            allVars[varDef.writtenVariant] = numberToWritten(extractedVars[varDef.token]);
+          }
+        }
+      }
+
+      // Staggered animation: set each field one by one with a delay
+      let delay = 0;
+      const STAGGER_MS = 120;
+      const GLOW_DURATION_MS = 500;
+
+      for (const [token, value] of fieldsToAnimate) {
+        setTimeout(() => {
+          // Add to the "filling" set for the green glow
+          setAiFillingTokens((prev) => new Set(prev).add(token));
+
+          // Set the field value
+          setFieldValues((prev) => {
+            const updated = { ...prev, [token]: allVars[token] || value };
+
+            // Also set written variant if it exists
+            const def = varMap.get(token);
+            if (def?.writtenVariant && allVars[def.writtenVariant]) {
+              updated[def.writtenVariant] = allVars[def.writtenVariant];
+            }
+
+            fieldValuesRef.current = updated;
+            return updated;
+          });
+
+          // Remove the glow after a short time
+          setTimeout(() => {
+            setAiFillingTokens((prev) => {
+              const next = new Set(prev);
+              next.delete(token);
+              return next;
+            });
+          }, GLOW_DURATION_MS);
+        }, delay);
+
+        delay += STAGGER_MS;
+      }
+
+      // After all fields are animated, trigger one document regeneration
+      setTimeout(() => {
+        regenerateDocument();
+      }, delay + 200);
+    },
+    [varDefs, varMap, regenerateDocument]
   );
 
   // Clean up debounce on unmount
@@ -468,8 +1071,10 @@ export default function CompletePage() {
           <div className="flex items-center gap-3 flex-shrink-0">
             <button
               onClick={downloadFile}
+              disabled={!fileBase64}
               className="bg-dark-gray border border-border-gray text-white font-semibold text-sm px-5 py-2.5 rounded-btn
                          hover:border-green transition-colors duration-200
+                         disabled:opacity-50 disabled:cursor-not-allowed
                          flex items-center gap-2"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -481,7 +1086,7 @@ export default function CompletePage() {
             </button>
             <button
               onClick={handleSave}
-              disabled={isRegenerating}
+              disabled={isRegenerating || !fileBase64}
               className="bg-green text-black font-semibold text-sm px-5 py-2.5 rounded-btn
                          hover:brightness-110 transition-all duration-200
                          flex items-center gap-2
@@ -594,15 +1199,37 @@ export default function CompletePage() {
   // ══════════════════════════════════════════════════
   return (
     <div className="flex flex-col h-[calc(100vh-56px)]">
+      {/* AI fill animation styles */}
+      <style jsx global>{`
+        .ai-filling input {
+          animation: aiRevealText 0.4s ease-out;
+        }
+        @keyframes aiRevealText {
+          from { clip-path: inset(0 100% 0 0); }
+          to { clip-path: inset(0 0 0 0); }
+        }
+      `}</style>
+
       {/* Header bar */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-border-gray flex-shrink-0">
-        <h1 className="font-bebas text-2xl tracking-wide text-white">
-          DOCUMENT <span className="text-green">PREVIEW</span>
-        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/docs")}
+            className="text-medium-gray hover:text-white transition-colors"
+            title="Back to documents"
+          >
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M10 12L6 8L10 4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <h1 className="font-bebas text-2xl tracking-wide text-white">
+            DOCUMENT <span className="text-green">EDITOR</span>
+          </h1>
+        </div>
         <span className="text-medium-gray text-sm">{docType.name}</span>
       </div>
 
-      {/* Split pane: preview (left) + fields (right) */}
+      {/* Split pane: preview (left) + sidebar (right) */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left — Doc Preview */}
         <div className="lg:w-[65%] w-full relative overflow-y-auto p-4">
@@ -616,27 +1243,46 @@ export default function CompletePage() {
             </div>
           )}
 
+          {/* Initial loading state */}
+          {initialLoading && !fileBase64 && (
+            <div className="flex items-center justify-center h-full">
+              <LoadingSpinner message="Generating preview..." />
+            </div>
+          )}
+
           {fileBase64 && <DocPreview fileBase64={fileBase64} />}
 
           {/* File name below preview */}
-          <p className="text-medium-gray text-xs mt-2 truncate">{fileName}</p>
+          {fileName && (
+            <p className="text-medium-gray text-xs mt-2 truncate">{fileName}</p>
+          )}
         </div>
 
-        {/* Right — Editable Fields Sidebar */}
+        {/* Right — Sidebar: AI bar + CMS dropdowns + field sections */}
         <div className="lg:w-[35%] w-full border-t lg:border-t-0 lg:border-l border-border-gray overflow-y-auto p-4">
-          {Object.keys(fieldValues).length > 0 ? (
-            <FieldSidebar
-              sections={sections}
-              writtenTokens={writtenTokens}
-              varMap={varMap}
-              fieldValues={fieldValues}
-              onFieldChange={handleFieldChange}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-medium-gray text-sm">Loading fields...</p>
-            </div>
-          )}
+          <FieldSidebar
+            docTypeId={docType.id}
+            sections={sections}
+            writtenTokens={writtenTokens}
+            varMap={varMap}
+            fieldValues={fieldValues}
+            onFieldChange={handleFieldChange}
+            aiFillingTokens={aiFillingTokens}
+            sectionRefs={sectionRefCallback}
+            cmsContext={cmsContext}
+            onExtracted={handleAiExtracted}
+            onExtracting={setIsAiExtracting}
+            teamMembers={teamMembers}
+            listings={listings}
+            loadingCms={loadingCms}
+            selectedCre8Broker={selectedCre8Broker}
+            selectedSellerBroker={selectedSellerBroker}
+            selectedListing={selectedListing}
+            onCre8BrokerChange={handleCre8BrokerChange}
+            onSellerBrokerChange={handleSellerBrokerChange}
+            onListingChange={handleListingChange}
+            isAiExtracting={isAiExtracting}
+          />
         </div>
       </div>
 

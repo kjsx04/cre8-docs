@@ -12,7 +12,7 @@ export default function DocTypeCard({ docType }: DocTypeCardProps) {
 
   const handleClick = () => {
     if (!docType.enabled) return;
-    router.push(`/docs/${docType.slug}`);
+    router.push(`/docs/${docType.slug}/complete`);
   };
 
   return (
