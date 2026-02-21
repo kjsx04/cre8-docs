@@ -1,6 +1,36 @@
 # CRE8 Docs — Test Prompts
 
-6 full-coverage LOI Building test prompts. Each fills all 30 tokens. Ask Claude Code for "a test prompt" or "random test LOI" and it will pick one at random.
+5 full-coverage LOI Building test prompts. Each fills **every** user-input token (23 fields). When Kevin asks for "a test prompt" or "random test LOI", pick one at random.
+
+## Token Coverage Checklist
+
+Every prompt must mention all of these. The 9 auto-computed tokens (date + 8 `_written` variants) are handled by the system.
+
+| # | Token | What to include |
+|---|-------|-----------------|
+| 1 | `seller_broker_name` | Full name |
+| 2 | `seller_broker_company` | Brokerage firm |
+| 3 | `seller_broker_email` | Email address |
+| 4 | `property_address` | Full street + city + state + ZIP |
+| 5 | `parcel_number` | APN / parcel number(s) |
+| 6 | `seller_entity` | Legal entity name |
+| 7 | `buyer_entity` | Legal entity name |
+| 8 | `purchase_price` | Dollar amount |
+| 9 | `earnest_money` | Dollar amount |
+| 10 | `emd_days` | Number of days |
+| 11 | `title_company` | Company name |
+| 12 | `title_agent` | Agent name |
+| 13 | `psa_draft_days` | Number of days |
+| 14 | `closing_period` | Number of days |
+| 15 | `extension_count` | Number of extensions |
+| 16 | `extension_days` | Days per extension |
+| 17 | `extension_deposit` | Dollar amount |
+| 18 | `seller_disclosures_days` | Number of days |
+| 19 | `dd_period` | Number of days |
+| 20 | `broker_names` | CRE8 broker full name |
+| 21 | `commission_pct` | Percentage |
+| 22 | `cre8_agent_email` | CRE8 broker email |
+| 23 | `cre8_agent_phone` | CRE8 broker phone |
 
 ---
 
@@ -31,9 +61,3 @@ Submitting an LOI on the retail strip center at 3380 S Arizona Avenue, Chandler 
 ## Test 5 — Mesa Flex Space
 
 We're putting in an LOI on the flex space building at 2610 E University Drive, Mesa AZ 85213, parcel 140-27-088. Buyer is Redline Properties LLC, seller is University Commerce Center LLC. Price is $985,000, earnest money $10,000 deposited in 3 days. Seller broker is Tony Delgado at Colliers International, tony.delgado@colliers.com. Title through Pioneer Title Agency, agent Sarah Hoffman. Draft the PSA in 7 days. Closing in 30 days with 1 extension of 14 days and $2,500 extension deposit. Seller disclosures 5 days. Due diligence 30 days. Commission 3%. Broker on our side is Matt Smith, matt@cre8advisors.com, 602-888-2738.
-
----
-
-## Test 6 — Phoenix Auto Dealership
-
-LOI for the former auto dealership at 5520 W Camelback Road, Phoenix AZ 85031, parcel number 155-63-012. The buyer entity is Camelback Motors Realty LLC and the seller is Western Auto Holdings Corp. We're offering $3,100,000 with $35,000 earnest money within 3 days. Seller's broker is Diana Reeves at Marcus & Millichap, diana.reeves@marcusmillichap.com. Title company is Stewart Title, title agent is James Park. PSA draft in 12 days. Closing period 45 days. Two extensions, 20 days each, $7,500 extension deposit. Seller disclosures in 5 days. Due diligence period 75 days. Commission 3%. CRE8 broker is Tyler Johnson, tyler@cre8advisors.com, 480-555-1234.
