@@ -236,6 +236,13 @@ export default function ReviewPage() {
             docType: docType.id,
           })
         );
+
+        // Store the generate payload so the complete page can regenerate with edits
+        sessionStorage.setItem(
+          `generate_payload_${docType.id}`,
+          JSON.stringify({ variables: flatVars, clauses: clausePayload })
+        );
+
         router.push(`/docs/${slug}/complete`);
       };
       reader.readAsDataURL(blob);

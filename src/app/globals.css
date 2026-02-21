@@ -52,7 +52,12 @@ select:focus {
   background: white;
   border-radius: 8px;
   overflow-y: auto;
-  max-height: 500px;
+  max-height: calc(100vh - 180px);
+}
+@media (max-width: 1023px) {
+  .docx-preview-container {
+    max-height: 50vh;
+  }
 }
 .docx-preview-container ::-webkit-scrollbar-track {
   background: #f0f0f0;
