@@ -15,9 +15,11 @@ export default function NavBar() {
     <nav className="h-14 bg-charcoal border-b border-border-gray flex items-center justify-between px-6">
       {/* Left: App title */}
       <div className="flex items-center gap-3">
-        <span className="font-bebas text-xl tracking-wide text-white">
-          CRE8 DOCS
-        </span>
+        <img
+          src="https://cdn.prod.website-files.com/66f22f3dc46f9da5825ff2f7/66f22f3dc46f9da5825ff33a_CRE8%20White.svg"
+          alt="CRE8 Advisors"
+          className="h-7 w-auto"
+        />
         <span className="text-border-gray">|</span>
         <span className="text-medium-gray text-sm">Document Assistant</span>
       </div>
