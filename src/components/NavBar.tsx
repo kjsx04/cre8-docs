@@ -16,7 +16,7 @@ export default function NavBar() {
       {/* Left: App title */}
       <div className="flex items-center gap-3">
         <img
-          src="https://cdn.prod.website-files.com/66f22f3dc46f9da5825ff2f7/66f22f3dc46f9da5825ff33a_CRE8%20White.svg"
+          src="https://cdn.prod.website-files.com/66f22f3dc46f9da5825ff2f7/6717f6e1c60fe16248597819_CRE8%20White.svg"
           alt="CRE8 Advisors"
           className="h-7 w-auto"
         />
