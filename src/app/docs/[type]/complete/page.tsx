@@ -31,9 +31,21 @@ import SharePointBreadcrumb from "@/components/SharePointBreadcrumb";
 import AIAssistBar from "@/components/AIAssistBar";
 
 type PageState = "preview" | "saving" | "saved" | "error";
+// Mobile tabs: "form" shows the edit sidebar, "preview" shows the doc
+type MobileTab = "form" | "preview";
 
 // localStorage key for remembering the user's chosen folder
 const LS_FOLDER_KEY = "cre8_docs_save_folder";
+
+// Helper — is this token a dollar-amount field?
+// Currency formatting is deferred to onBlur for these fields so typing isn't disrupted.
+function isDollarToken(token: string): boolean {
+  return (
+    token.includes("money") ||
+    token.includes("deposit") ||
+    token.includes("price")
+  );
+}
 
 // ── Collapsible section card for the field sidebar ──
 function CollapsibleSection({
@@ -42,6 +54,7 @@ function CollapsibleSection({
   writtenTokens,
   fieldValues,
   onFieldChange,
+  onFieldBlur,
   aiFillingTokens,
   sectionRef,
 }: {
@@ -50,6 +63,7 @@ function CollapsibleSection({
   writtenTokens: Set<string>;
   fieldValues: Record<string, string>;
   onFieldChange: (token: string, value: string) => void;
+  onFieldBlur: (token: string) => void;
   aiFillingTokens: Set<string>;
   sectionRef?: (title: string, el: HTMLDivElement | null) => void;
 }) {
@@ -109,6 +123,8 @@ function CollapsibleSection({
             const def = varMap.get(token);
             const label = def?.label || token.replace(/_/g, " ");
             const isFilling = aiFillingTokens.has(token);
+            const isDollar = !!(def?.numberField && isDollarToken(token));
+
             return (
               <div
                 key={token}
@@ -118,11 +134,19 @@ function CollapsibleSection({
               >
                 <label className="block text-medium-gray text-xs mb-1">
                   {label}
+                  {/* Small hint for dollar fields: formatting happens when you leave the input */}
+                  {isDollar && (
+                    <span className="text-border-gray ml-1 font-normal">
+                      — type number, formats on exit
+                    </span>
+                  )}
                 </label>
                 <input
                   type="text"
                   value={fieldValues[token] || ""}
                   onChange={(e) => onFieldChange(token, e.target.value)}
+                  onBlur={() => onFieldBlur(token)}
+                  placeholder={isDollar ? "e.g. 2500000" : ""}
                   className={`w-full bg-charcoal border rounded px-3 py-1.5
                              text-white text-sm transition-all duration-300
                              focus:border-green
@@ -251,7 +275,7 @@ function CmsDropdowns({
   );
 }
 
-// ── Field Sidebar — now includes AI bar + CMS dropdowns + field sections ──
+// ── Field Sidebar — AI bar + CMS dropdowns + field sections ──
 function FieldSidebar({
   docTypeId,
   sections,
@@ -259,13 +283,12 @@ function FieldSidebar({
   varMap,
   fieldValues,
   onFieldChange,
+  onFieldBlur,
   aiFillingTokens,
   sectionRefs,
-  // AI bar props
   cmsContext,
   onExtracted,
   onExtracting,
-  // CMS dropdown props
   teamMembers,
   listings,
   loadingCms,
@@ -283,6 +306,7 @@ function FieldSidebar({
   varMap: Map<string, VariableDef>;
   fieldValues: Record<string, string>;
   onFieldChange: (token: string, value: string) => void;
+  onFieldBlur: (token: string) => void;
   aiFillingTokens: Set<string>;
   sectionRefs: (title: string, el: HTMLDivElement | null) => void;
   cmsContext: {
@@ -350,6 +374,7 @@ function FieldSidebar({
           writtenTokens={writtenTokens}
           fieldValues={fieldValues}
           onFieldChange={onFieldChange}
+          onFieldBlur={onFieldBlur}
           aiFillingTokens={aiFillingTokens}
           sectionRef={sectionRefs}
         />
@@ -375,6 +400,10 @@ export default function CompletePage() {
   const [fileName, setFileName] = useState("");
   const [fileBase64, setFileBase64] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
+
+  // Mobile tab — "form" shows the edit sidebar, "preview" shows the document
+  // Defaults to "form" so users start on the edit fields screen on mobile
+  const [mobileTab, setMobileTab] = useState<MobileTab>("form");
 
   // Field editing state
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
@@ -485,10 +514,7 @@ export default function CompletePage() {
     // Format currency and compute written variants for defaulted number fields
     for (const varDef of varDefs) {
       if (varDef.numberField && defaults[varDef.token]) {
-        const isDollar =
-          varDef.token.includes("money") ||
-          varDef.token.includes("deposit") ||
-          varDef.token.includes("price");
+        const isDollar = isDollarToken(varDef.token);
         if (isDollar) {
           defaults[varDef.token] = formatCurrency(defaults[varDef.token]);
           if (varDef.writtenVariant) {
@@ -774,25 +800,19 @@ export default function CompletePage() {
   }, [regenerateDocument]);
 
   // ── Handle a field value change (with debounced regen) ──
+  // NOTE: Dollar fields (price, money, deposit) are NOT formatted here —
+  // formatting is deferred to onBlur so the user can type freely.
   const handleFieldChange = useCallback(
     (token: string, value: string) => {
       setFieldValues((prev) => {
         const updated = { ...prev, [token]: value };
 
-        // Auto-format currency and compute written variants for number fields
         const def = varMap.get(token);
         if (def?.numberField) {
-          const isDollar =
-            token.includes("money") ||
-            token.includes("deposit") ||
-            token.includes("price");
-
-          if (isDollar) {
-            updated[token] = formatCurrency(value);
-            if (def.writtenVariant) {
-              updated[def.writtenVariant] = dollarToWritten(value);
-            }
-          } else if (def.writtenVariant) {
+          const isDollar = isDollarToken(token);
+          // For non-dollar number fields (e.g. day counts): compute writtenVariant live
+          // Dollar fields skip formatting here — handled in handleFieldBlur instead
+          if (!isDollar && def.writtenVariant) {
             updated[def.writtenVariant] = numberToWritten(value);
           }
         }
@@ -803,6 +823,37 @@ export default function CompletePage() {
       });
 
       // Start/reset the 1.5s debounce timer for regeneration
+      triggerDebouncedRegen();
+    },
+    [varMap, triggerDebouncedRegen]
+  );
+
+  // ── Handle blur on a field — formats dollar amounts and triggers regen ──
+  // This fires when the user leaves (tabs out of) a dollar-amount input.
+  const handleFieldBlur = useCallback(
+    (token: string) => {
+      const def = varMap.get(token);
+      if (!def?.numberField) return;
+      if (!isDollarToken(token)) return; // Non-dollar number fields are handled in onChange
+
+      setFieldValues((prev) => {
+        const raw = prev[token] || "";
+        if (!raw.trim()) return prev; // Empty — nothing to format
+
+        const updated = { ...prev };
+        // Format: "2500000" → "$2,500,000"
+        updated[token] = formatCurrency(raw);
+        // Compute written variant: "two million five hundred thousand dollars"
+        if (def.writtenVariant) {
+          updated[def.writtenVariant] = dollarToWritten(raw);
+        }
+
+        // fieldValuesRef is synced here so regenerateDocument picks up formatted value
+        fieldValuesRef.current = updated;
+        return updated;
+      });
+
+      // Trigger a regen with the now-formatted value
       triggerDebouncedRegen();
     },
     [varMap, triggerDebouncedRegen]
@@ -915,10 +966,7 @@ export default function CompletePage() {
       const allVars: Record<string, string> = { ...extractedVars };
       for (const varDef of varDefs) {
         if (varDef.numberField && allVars[varDef.token]) {
-          const isDollar =
-            varDef.token.includes("money") ||
-            varDef.token.includes("deposit") ||
-            varDef.token.includes("price");
+          const isDollar = isDollarToken(varDef.token);
           if (isDollar) {
             allVars[varDef.token] = formatCurrency(allVars[varDef.token]);
             if (varDef.writtenVariant) {
@@ -1235,10 +1283,46 @@ export default function CompletePage() {
         <span className="text-medium-gray text-sm">{docType.name}</span>
       </div>
 
+      {/* ── Mobile tab bar — only visible on small screens ──
+           Lets users switch between the edit form and the document preview.
+           On desktop (lg+) both panes are always visible side by side. */}
+      <div className="flex lg:hidden border-b border-border-gray flex-shrink-0">
+        <button
+          onClick={() => setMobileTab("form")}
+          className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-b-2 ${
+            mobileTab === "form"
+              ? "text-white border-green"
+              : "text-medium-gray border-transparent"
+          }`}
+        >
+          Edit Fields
+        </button>
+        <button
+          onClick={() => setMobileTab("preview")}
+          className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-b-2 ${
+            mobileTab === "preview"
+              ? "text-white border-green"
+              : "text-medium-gray border-transparent"
+          }`}
+        >
+          Preview Doc
+          {/* Show a subtle indicator when a regen is in progress */}
+          {isRegenerating && (
+            <span className="ml-1.5 inline-block w-1.5 h-1.5 bg-green rounded-full animate-pulse" />
+          )}
+        </button>
+      </div>
+
       {/* Split pane: preview (left) + sidebar (right) */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left — Doc Preview */}
-        <div className="lg:w-[65%] w-full relative overflow-y-auto p-4">
+
+        {/* ── Left — Doc Preview ──
+             On mobile: only visible when mobileTab === "preview"
+             On desktop: always visible (lg:block overrides the hidden) */}
+        <div
+          className={`lg:w-[65%] w-full relative overflow-y-auto p-4
+            ${mobileTab === "preview" ? "block" : "hidden lg:block"}`}
+        >
           {/* Regenerating overlay */}
           {isRegenerating && (
             <div className="absolute inset-0 bg-black/40 z-20 flex items-center justify-center rounded-lg">
@@ -1256,10 +1340,23 @@ export default function CompletePage() {
             </div>
           )}
 
-          {fileBase64 && <DocPreview fileBase64={fileBase64} />}
+          {/* Doc preview — wrapped in overflow-x-auto so it's scrollable on mobile
+               if the Word document width exceeds the screen width */}
+          {fileBase64 && (
+            <div className="overflow-x-auto">
+              <DocPreview fileBase64={fileBase64} />
+            </div>
+          )}
+
+          {/* Helper note for mobile users */}
+          {fileBase64 && (
+            <p className="text-medium-gray text-xs mt-2 lg:hidden">
+              Pinch to zoom · scroll sideways if needed
+            </p>
+          )}
 
           {/* Preview background note */}
-          <p className="text-medium-gray text-xs mt-2">
+          <p className="text-medium-gray text-xs mt-2 hidden lg:block">
             Template backgrounds will appear in the downloaded file.
           </p>
 
@@ -1269,8 +1366,13 @@ export default function CompletePage() {
           )}
         </div>
 
-        {/* Right — Sidebar: AI bar + CMS dropdowns + field sections */}
-        <div className="lg:w-[35%] w-full border-t lg:border-t-0 lg:border-l border-border-gray overflow-y-auto p-4">
+        {/* ── Right — Sidebar: AI bar + CMS dropdowns + field sections ──
+             On mobile: only visible when mobileTab === "form"
+             On desktop: always visible */}
+        <div
+          className={`lg:w-[35%] w-full border-t lg:border-t-0 lg:border-l border-border-gray overflow-y-auto p-4
+            ${mobileTab === "form" ? "block" : "hidden lg:block"}`}
+        >
           <FieldSidebar
             docTypeId={docType.id}
             sections={sections}
@@ -1278,6 +1380,7 @@ export default function CompletePage() {
             varMap={varMap}
             fieldValues={fieldValues}
             onFieldChange={handleFieldChange}
+            onFieldBlur={handleFieldBlur}
             aiFillingTokens={aiFillingTokens}
             sectionRefs={sectionRefCallback}
             cmsContext={cmsContext}
