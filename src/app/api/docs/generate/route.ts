@@ -130,6 +130,11 @@ export async function POST(request: NextRequest) {
       nullGetter: () => "",
     });
 
+    // Debug: log the key money fields so we can see what's arriving at the template
+    console.log("[generate] earnest_money =", JSON.stringify(variables.earnest_money));
+    console.log("[generate] earnest_money_written =", JSON.stringify(variables.earnest_money_written));
+    console.log("[generate] purchase_price =", JSON.stringify(variables.purchase_price));
+
     // Build the data object for token replacement
     const data: Record<string, string> = { ...variables };
 
