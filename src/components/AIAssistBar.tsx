@@ -31,7 +31,6 @@ export default function AIAssistBar({
   const [statusMessage, setStatusMessage] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   const [error, setError] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Start cycling status messages
@@ -117,11 +116,6 @@ export default function AIAssistBar({
     e.target.value = "";
   }
 
-  // Focus textarea for voice dictation (user uses native keyboard mic)
-  function handleVoiceFocus() {
-    textareaRef.current?.focus();
-  }
-
   return (
     <div className="bg-dark-gray border border-border-gray rounded-card overflow-hidden">
       {/* Header — click to expand/collapse */}
@@ -153,7 +147,6 @@ export default function AIAssistBar({
         <div className="px-4 pb-4 space-y-3">
           {/* Textarea */}
           <textarea
-            ref={textareaRef}
             value={rawInput}
             onChange={(e) => setRawInput(e.target.value)}
             placeholder="Describe your deal — buyer, seller, property, price, terms..."
@@ -193,23 +186,6 @@ export default function AIAssistBar({
               )}
             </button>
 
-            {/* Voice button — focuses textarea for native dictation */}
-            <button
-              onClick={handleVoiceFocus}
-              disabled={isExtracting}
-              title="Focus for voice dictation"
-              className="bg-charcoal border border-border-gray text-medium-gray p-2 rounded-btn
-                         hover:border-green hover:text-white transition-colors
-                         disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="23" />
-                <line x1="8" y1="23" x2="16" y2="23" />
-              </svg>
-            </button>
-
             {/* Photo button — file input for image/document */}
             <label
               title="Upload photo or document"
@@ -236,10 +212,6 @@ export default function AIAssistBar({
             <p className="text-red-400 text-xs">{error}</p>
           )}
 
-          {/* Helper text */}
-          <p className="text-medium-gray text-xs">
-            Voice dictation available.
-          </p>
         </div>
       )}
     </div>
