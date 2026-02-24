@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
     // Map doc type to template file
     const templateMap: Record<string, string> = {
       loi_building: "loi-building-tokenized.docx",
+      loi_land: "loi-land-tokenized.docx",
     };
 
     const templateFileName = templateMap[docType];

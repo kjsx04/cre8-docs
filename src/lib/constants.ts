@@ -21,7 +21,7 @@ export const DOC_TYPES: DocType[] = [
     description: "Letter of Intent for purchasing vacant land",
     templateFile: "loi-land-tokenized.docx",
     sharePointFolder: "/CRE8 Advisors/Documents/LOIs/Land/",
-    enabled: false,
+    enabled: true,
   },
   {
     id: "loi_lease",
@@ -70,6 +70,47 @@ export const LOI_BUILDING_VARIABLES: VariableDef[] = [
   { token: "seller_broker_email", label: "Seller Broker Email", source: "cms_teams", flag: false },
   { token: "property_address", label: "Property Address", source: "cms_listing", flag: false },
   { token: "parcel_number", label: "Parcel Number(s)", source: "user_input", flag: true },
+  { token: "seller_entity", label: "Seller Entity", source: "user_input", flag: true },
+  { token: "buyer_entity", label: "Buyer Entity", source: "user_input", flag: true },
+  { token: "purchase_price", label: "Purchase Price ($)", source: "user_input", flag: true, numberField: true },
+  { token: "earnest_money", label: "Earnest Money ($)", source: "user_input", flag: true, numberField: true, writtenVariant: "earnest_money_written" },
+  { token: "earnest_money_written", label: "Earnest Money (written)", source: "auto", flag: true },
+  { token: "emd_days", label: "Days to Deposit EMD", source: "user_input", flag: false, defaultValue: "3", numberField: true, writtenVariant: "emd_days_written" },
+  { token: "emd_days_written", label: "Days to Deposit EMD (written)", source: "auto", flag: false },
+  { token: "title_company", label: "Title Company", source: "default", flag: false, defaultValue: "Fidelity National Title" },
+  { token: "title_agent", label: "Title Agent", source: "default", flag: false, defaultValue: "Kristina Gooding" },
+  { token: "psa_draft_days", label: "PSA Draft Days", source: "user_input", flag: false, defaultValue: "10", numberField: true, writtenVariant: "psa_draft_days_written" },
+  { token: "psa_draft_days_written", label: "PSA Draft Days (written)", source: "auto", flag: false },
+  { token: "closing_period", label: "Closing Period (days)", source: "user_input", flag: false, defaultValue: "30", numberField: true, writtenVariant: "closing_period_written" },
+  { token: "closing_period_written", label: "Closing Period (written)", source: "auto", flag: false },
+  { token: "extension_count", label: "Extension Count", source: "user_input", flag: false, defaultValue: "1", numberField: true, writtenVariant: "extension_count_written" },
+  { token: "extension_count_written", label: "Extension Count (written)", source: "auto", flag: false },
+  { token: "extension_days", label: "Extension Days", source: "user_input", flag: false, defaultValue: "30", numberField: true, writtenVariant: "extension_days_written" },
+  { token: "extension_days_written", label: "Extension Days (written)", source: "auto", flag: false },
+  { token: "extension_deposit", label: "Extension Deposit ($)", source: "user_input", flag: false, numberField: true },
+  { token: "seller_disclosures_days", label: "Seller Disclosures Days", source: "user_input", flag: false, defaultValue: "5", numberField: true, writtenVariant: "seller_disclosures_days_written" },
+  { token: "seller_disclosures_days_written", label: "Seller Disclosures Days (written)", source: "auto", flag: false },
+  { token: "dd_period", label: "Due Diligence Period (days)", source: "user_input", flag: false, defaultValue: "90", numberField: true, writtenVariant: "dd_period_written" },
+  { token: "dd_period_written", label: "Due Diligence Period (written)", source: "auto", flag: false },
+  { token: "broker_names", label: "CRE8 Broker Name(s)", source: "cms_teams", flag: false },
+  { token: "commission_pct", label: "Commission %", source: "user_input", flag: false, defaultValue: "3%" },
+  { token: "cre8_agent_email", label: "CRE8 Agent Email", source: "cms_teams", flag: false },
+  { token: "cre8_agent_phone", label: "CRE8 Agent Phone", source: "cms_teams", flag: false },
+];
+
+// ── LOI Land Variable Map (35 tokens: all LOI Building + 3 new) ──
+
+export const LOI_LAND_VARIABLES: VariableDef[] = [
+  { token: "date", label: "Date", source: "auto", flag: false },
+  { token: "seller_broker_name", label: "Seller Broker Name", source: "cms_teams", flag: false },
+  // seller_broker_first_name is used for the letter salutation ("Dear Rommie,")
+  { token: "seller_broker_first_name", label: "Seller Broker First Name (salutation)", source: "user_input", flag: false },
+  { token: "seller_broker_company", label: "Seller Broker Company", source: "cms_teams", flag: false },
+  { token: "seller_broker_email", label: "Seller Broker Email", source: "cms_teams", flag: false },
+  { token: "property_address", label: "Property Address", source: "cms_listing", flag: false },
+  { token: "property_name", label: "Property Name", source: "user_input", flag: false },
+  { token: "parcel_number", label: "Parcel Number(s)", source: "user_input", flag: true },
+  { token: "acreage", label: "Acreage", source: "user_input", flag: false },
   { token: "seller_entity", label: "Seller Entity", source: "user_input", flag: true },
   { token: "buyer_entity", label: "Buyer Entity", source: "user_input", flag: true },
   { token: "purchase_price", label: "Purchase Price ($)", source: "user_input", flag: true, numberField: true },
@@ -180,10 +221,90 @@ export const LOI_BUILDING_SECTIONS: FieldSection[] = [
   },
 ];
 
+export const LOI_LAND_SECTIONS: FieldSection[] = [
+  {
+    title: "Date & Brokers",
+    tokens: [
+      "date",
+      "seller_broker_name",
+      "seller_broker_first_name",
+      "seller_broker_company",
+      "seller_broker_email",
+      "broker_names",
+      "cre8_agent_email",
+      "cre8_agent_phone",
+    ],
+  },
+  {
+    title: "Parties",
+    tokens: [
+      "buyer_entity",
+      "seller_entity",
+    ],
+  },
+  {
+    title: "Property",
+    tokens: [
+      "property_address",
+      "property_name",
+      "parcel_number",
+      "acreage",
+    ],
+  },
+  {
+    title: "Price & Earnest Money",
+    tokens: [
+      "purchase_price",
+      "earnest_money",
+      "earnest_money_written",
+      "emd_days",
+      "emd_days_written",
+    ],
+  },
+  {
+    title: "Title & PSA",
+    tokens: [
+      "title_company",
+      "title_agent",
+      "psa_draft_days",
+      "psa_draft_days_written",
+    ],
+  },
+  {
+    title: "Timeline",
+    tokens: [
+      "dd_period",
+      "dd_period_written",
+      "closing_period",
+      "closing_period_written",
+      "seller_disclosures_days",
+      "seller_disclosures_days_written",
+    ],
+  },
+  {
+    title: "Extensions",
+    tokens: [
+      "extension_count",
+      "extension_count_written",
+      "extension_days",
+      "extension_days_written",
+      "extension_deposit",
+    ],
+  },
+  {
+    title: "Commission",
+    tokens: [
+      "commission_pct",
+    ],
+  },
+];
+
 export function getFieldSections(docType: string): FieldSection[] {
   switch (docType) {
     case "loi_building":
       return LOI_BUILDING_SECTIONS;
+    case "loi_land":
+      return LOI_LAND_SECTIONS;
     default:
       return LOI_BUILDING_SECTIONS;
   }
@@ -195,6 +316,8 @@ export function getVariableMap(docType: string): VariableDef[] {
   switch (docType) {
     case "loi_building":
       return LOI_BUILDING_VARIABLES;
+    case "loi_land":
+      return LOI_LAND_VARIABLES;
     default:
       return LOI_BUILDING_VARIABLES; // fallback for now
   }
