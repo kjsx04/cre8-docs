@@ -121,6 +121,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Debug: inspect the cleaned document XML to see how {{earnest_money}} appears
+    const debugXml = zip.file("word/document.xml");
+    if (debugXml) {
+      const debugContent = debugXml.asText();
+      // Count clean occurrences
+      const cleanCount = (debugContent.match(/\{\{earnest_money\}\}/g) || []).length;
+      console.log("[generate] clean {{earnest_money}} occurrences:", cleanCount);
+      // Show surrounding context of any "earnest" string in the XML
+      const earnestIdx = debugContent.indexOf("earnest");
+      if (earnestIdx >= 0) {
+        console.log("[generate] earnest context:", debugContent.substring(earnestIdx - 5, earnestIdx + 50));
+      }
+    }
+
     // Configure docxtemplater with custom delimiters matching our {{token}} format
     const doc = new Docxtemplater(zip, {
       delimiters: { start: "{{", end: "}}" },
@@ -133,7 +147,6 @@ export async function POST(request: NextRequest) {
     // Debug: log the key money fields so we can see what's arriving at the template
     console.log("[generate] earnest_money =", JSON.stringify(variables.earnest_money));
     console.log("[generate] earnest_money_written =", JSON.stringify(variables.earnest_money_written));
-    console.log("[generate] purchase_price =", JSON.stringify(variables.purchase_price));
 
     // Build the data object for token replacement
     const data: Record<string, string> = { ...variables };
