@@ -10,30 +10,58 @@ import { CLAUSE_LIBRARY } from "@/lib/clause-library";
  * Word splits {{token_name}} across multiple XML runs due to spell-check,
  * formatting changes, etc. This merges them back into clean {{token}} tags
  * so docxtemplater can find them.
+ *
+ * Two passes:
+ *  Pass 1 — handles {{ and }} delimiters split across runs (original approach)
+ *  Pass 2 — handles the token NAME itself split mid-word across runs
+ *            e.g. "earnest" in one run, "_money}}" in the next
+ *            Works by stripping all XML tags from between any {{ ... }} span
  */
 function cleanSplitTokens(xml: string): string {
-  // Match {{ followed by any XML tags/content, then a token name, then any XML, then }}
-  // This regex finds patterns where {{ and }} are in separate <w:t> elements
-  // with XML noise (proofErr, formatting runs) in between
-  const splitPattern = new RegExp("\\{\\{(<\\/w:t>[\\s\\S]*?<w:t[^>]*>)([a-z_]+)(<\\/w:t>[\\s\\S]*?<w:t[^>]*>)\\}\\}", "g");
-
   let cleaned = xml;
 
-  // Keep replacing until no more matches (handles nested cases)
+  // ── Pass 1: {{ and }} in different runs, full token name visible in between ──
+  const splitPattern = new RegExp(
+    "\\{\\{(<\\/w:t>[\\s\\S]*?<w:t[^>]*>)([a-z_][a-z0-9_]*)(<\\/w:t>[\\s\\S]*?<w:t[^>]*>)\\}\\}",
+    "g"
+  );
   let prev = "";
   while (prev !== cleaned) {
     prev = cleaned;
     cleaned = cleaned.replace(splitPattern, "{{$2}}");
   }
 
-  // Also handle the case where just the opening {{ or closing }} is split
-  // Pattern: {{</w:t></w:r>...<w:r>...<w:t>token_name</w:t></w:r>...<w:r>...<w:t>}}
-  const broadPattern = new RegExp("\\{\\{<\\/w:t><\\/w:r>[\\s\\S]*?<w:t[^>]*>([a-z_]+)<\\/w:t><\\/w:r>[\\s\\S]*?<w:t[^>]*>\\}\\}", "g");
+  // Broad variant — opening {{ or closing }} alone in a separate run
+  const broadPattern = new RegExp(
+    "\\{\\{<\\/w:t><\\/w:r>[\\s\\S]*?<w:t[^>]*>([a-z_][a-z0-9_]*)<\\/w:t><\\/w:r>[\\s\\S]*?<w:t[^>]*>\\}\\}",
+    "g"
+  );
   prev = "";
   while (prev !== cleaned) {
     prev = cleaned;
     cleaned = cleaned.replace(broadPattern, "{{$1}}");
   }
+
+  // ── Pass 2: token NAME itself split across runs ──
+  // Matches {{...}} where the inner content may contain XML tags interleaved
+  // with the token characters. Strips the XML, validates the result looks like
+  // a token name, and collapses to a clean {{token}}.
+  // Uses a lazy match so it won't accidentally span two separate tokens.
+  cleaned = cleaned.replace(/\{\{([\s\S]*?)\}\}/g, (match, inner) => {
+    // If it's already a clean token, leave it alone
+    if (/^[a-z_][a-z0-9_]*$/.test(inner)) return match;
+
+    // Strip XML tags and any whitespace from the inner content
+    const token = inner.replace(/<[^>]+>/g, "").replace(/\s/g, "");
+
+    // Only replace if the stripped result is a valid token name
+    if (/^[a-z_][a-z0-9_]*$/.test(token)) {
+      return `{{${token}}}`;
+    }
+
+    // Not a recognizable token — leave unchanged
+    return match;
+  });
 
   return cleaned;
 }
