@@ -741,6 +741,20 @@ export default function CompletePage() {
       // Read latest values from the ref (not state — avoids stale closure)
       const currentValues = { ...fieldValuesRef.current };
 
+      // Auto-format dollar fields before sending to the template.
+      // Blur normally triggers formatting, but the debounce can fire while
+      // the user is still typing (before blur). This ensures the generated
+      // doc always shows "$X,XXX" even if the field hasn't been blurred yet.
+      for (const varDef of varDefs) {
+        if (varDef.numberField && isDollarToken(varDef.token) && currentValues[varDef.token]) {
+          const raw = currentValues[varDef.token];
+          currentValues[varDef.token] = formatCurrency(raw);
+          if (varDef.writtenVariant) {
+            currentValues[varDef.writtenVariant] = dollarToWritten(raw);
+          }
+        }
+      }
+
       const res = await fetch("/api/docs/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -787,7 +801,7 @@ export default function CompletePage() {
       console.error("Regeneration error:", err);
       setIsRegenerating(false);
     }
-  }, [docType, clausePayload, buildFileName]);
+  }, [docType, clausePayload, buildFileName, varDefs]);
 
   // ── Helper to trigger a debounced regen ──
   const triggerDebouncedRegen = useCallback(() => {

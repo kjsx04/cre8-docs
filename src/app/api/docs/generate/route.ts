@@ -11,50 +11,31 @@ import { CLAUSE_LIBRARY } from "@/lib/clause-library";
  * formatting changes, etc. This merges them back into clean {{token}} tags
  * so docxtemplater can find them.
  *
- * Two passes:
- *  Pass 1 — handles {{ and }} delimiters split across runs (original approach)
- *  Pass 2 — handles the token NAME itself split mid-word across runs
- *            e.g. "earnest" in one run, "_money}}" in the next
- *            Works by stripping all XML tags from between any {{ ... }} span
+ * Single pass: for every {{...}} span in the raw XML, strip out any XML tags
+ * from the inner content, validate the result is a token name, and collapse
+ * to {{token}}. This handles all split patterns:
+ *   - {{ and }} in separate runs from the token name
+ *   - token NAME itself split mid-word across runs (e.g. "earnest_" + "money")
+ *   - combinations of both
+ *
+ * Note: Pass 1 (the earlier splitPattern + broadPattern approach) was removed
+ * because it incorrectly matched token names ending with "_" (e.g. it would
+ * greedily capture "earnest_" as the token, discarding "money", resulting in
+ * {{earnest_}} instead of {{earnest_money}}). Pass 2 alone handles all cases.
  */
 function cleanSplitTokens(xml: string): string {
-  let cleaned = xml;
-
-  // ── Pass 1: {{ and }} in different runs, full token name visible in between ──
-  const splitPattern = new RegExp(
-    "\\{\\{(<\\/w:t>[\\s\\S]*?<w:t[^>]*>)([a-z_][a-z0-9_]*)(<\\/w:t>[\\s\\S]*?<w:t[^>]*>)\\}\\}",
-    "g"
-  );
-  let prev = "";
-  while (prev !== cleaned) {
-    prev = cleaned;
-    cleaned = cleaned.replace(splitPattern, "{{$2}}");
-  }
-
-  // Broad variant — opening {{ or closing }} alone in a separate run
-  const broadPattern = new RegExp(
-    "\\{\\{<\\/w:t><\\/w:r>[\\s\\S]*?<w:t[^>]*>([a-z_][a-z0-9_]*)<\\/w:t><\\/w:r>[\\s\\S]*?<w:t[^>]*>\\}\\}",
-    "g"
-  );
-  prev = "";
-  while (prev !== cleaned) {
-    prev = cleaned;
-    cleaned = cleaned.replace(broadPattern, "{{$1}}");
-  }
-
-  // ── Pass 2: token NAME itself split across runs ──
-  // Matches {{...}} where the inner content may contain XML tags interleaved
-  // with the token characters. Strips the XML, validates the result looks like
-  // a token name, and collapses to a clean {{token}}.
-  // Uses a lazy match so it won't accidentally span two separate tokens.
-  cleaned = cleaned.replace(/\{\{([\s\S]*?)\}\}/g, (match, inner) => {
-    // If it's already a clean token, leave it alone
+  // Match every {{...}} span in the XML — lazy so we stop at the first }}.
+  // For already-clean tokens, return unchanged.
+  // For spans containing XML tags, strip the tags, validate the remaining text
+  // is a valid token name, and return a clean {{token}}.
+  return xml.replace(/\{\{([\s\S]*?)\}\}/g, (match, inner) => {
+    // Already a clean token — nothing to do
     if (/^[a-z_][a-z0-9_]*$/.test(inner)) return match;
 
-    // Strip XML tags and any whitespace from the inner content
+    // Strip XML tags and whitespace from the inner content
     const token = inner.replace(/<[^>]+>/g, "").replace(/\s/g, "");
 
-    // Only replace if the stripped result is a valid token name
+    // Only collapse if the result looks like a valid token name
     if (/^[a-z_][a-z0-9_]*$/.test(token)) {
       return `{{${token}}}`;
     }
@@ -62,8 +43,6 @@ function cleanSplitTokens(xml: string): string {
     // Not a recognizable token — leave unchanged
     return match;
   });
-
-  return cleaned;
 }
 
 export async function POST(request: NextRequest) {
@@ -121,20 +100,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Debug: inspect the cleaned document XML to see how {{earnest_money}} appears
-    const debugXml = zip.file("word/document.xml");
-    if (debugXml) {
-      const debugContent = debugXml.asText();
-      // Count clean occurrences
-      const cleanCount = (debugContent.match(/\{\{earnest_money\}\}/g) || []).length;
-      console.log("[generate] clean {{earnest_money}} occurrences:", cleanCount);
-      // Show surrounding context of any "earnest" string in the XML
-      const earnestIdx = debugContent.indexOf("earnest");
-      if (earnestIdx >= 0) {
-        console.log("[generate] earnest context:", debugContent.substring(earnestIdx - 5, earnestIdx + 50));
-      }
-    }
-
     // Configure docxtemplater with custom delimiters matching our {{token}} format
     const doc = new Docxtemplater(zip, {
       delimiters: { start: "{{", end: "}}" },
@@ -143,10 +108,6 @@ export async function POST(request: NextRequest) {
       // Don't throw on missing tags — replace with empty string
       nullGetter: () => "",
     });
-
-    // Debug: log the key money fields so we can see what's arriving at the template
-    console.log("[generate] earnest_money =", JSON.stringify(variables.earnest_money));
-    console.log("[generate] earnest_money_written =", JSON.stringify(variables.earnest_money_written));
 
     // Build the data object for token replacement
     const data: Record<string, string> = { ...variables };
