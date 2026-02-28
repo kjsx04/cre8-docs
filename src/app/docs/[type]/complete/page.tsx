@@ -475,18 +475,6 @@ function FieldSidebar({
         onExtracting={onExtracting}
       />
 
-      {/* CMS Dropdowns */}
-      <CmsDropdowns
-        teamMembers={teamMembers}
-        listings={listings}
-        loadingCms={loadingCms}
-        selectedCre8Broker={selectedCre8Broker}
-        selectedListing={selectedListing}
-        onCre8BrokerChange={onCre8BrokerChange}
-        onSellerBrokerChange={onSellerBrokerChange}
-        onListingChange={onListingChange}
-      />
-
       {/* Shimmer overlay when AI is extracting */}
       {isAiExtracting && (
         <div className="text-center py-2">
@@ -502,9 +490,22 @@ function FieldSidebar({
         EDIT FIELDS
       </h2>
 
-      {/* Field sections — inject "Select from Map" button before the Property section */}
+      {/* Field sections — inject helpers before Property and Date & Brokers sections */}
       {sections.map((section) => (
         <div key={section.title}>
+          {/* CMS Dropdowns right before the Date & Brokers section */}
+          {section.title === "Date & Brokers" && (
+            <CmsDropdowns
+              teamMembers={teamMembers}
+              listings={listings}
+              loadingCms={loadingCms}
+              selectedCre8Broker={selectedCre8Broker}
+              selectedListing={selectedListing}
+              onCre8BrokerChange={onCre8BrokerChange}
+              onSellerBrokerChange={onSellerBrokerChange}
+              onListingChange={onListingChange}
+            />
+          )}
           {/* "Select from Map" button at the top of the Property section */}
           {section.title === "Property" && (
             <button
