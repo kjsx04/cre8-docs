@@ -53,7 +53,9 @@ function isDollarToken(token: string): boolean {
   return (
     token.includes("money") ||
     token.includes("deposit") ||
-    token.includes("price")
+    token.includes("price") ||
+    token === "base_rent_psf" ||
+    token === "ti_allowance_psf"
   );
 }
 
@@ -893,7 +895,15 @@ export default function CompletePage() {
       for (const varDef of varDefs) {
         if (varDef.numberField && isDollarToken(varDef.token) && currentValues[varDef.token]) {
           const raw = currentValues[varDef.token];
-          currentValues[varDef.token] = formatCurrency(raw);
+          // PSF fields keep 2 decimal places: "38" → "$38.00"
+          const isPsf = varDef.token === "base_rent_psf" || varDef.token === "ti_allowance_psf";
+          if (isPsf) {
+            const cleaned = raw.replace(/[$,]/g, "").trim();
+            const n = parseFloat(cleaned);
+            currentValues[varDef.token] = isNaN(n) ? raw : "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          } else {
+            currentValues[varDef.token] = formatCurrency(raw);
+          }
           if (varDef.writtenVariant) {
             currentValues[varDef.writtenVariant] = dollarToWritten(raw);
           }
@@ -1056,8 +1066,16 @@ export default function CompletePage() {
         if (!raw.trim()) return prev; // Empty — nothing to format
 
         const updated = { ...prev };
-        // Format: "2500000" → "$2,500,000"
-        updated[token] = formatCurrency(raw);
+        // PSF fields keep 2 decimal places: "38" → "$38.00"
+        const isPsf = token === "base_rent_psf" || token === "ti_allowance_psf";
+        if (isPsf) {
+          const cleaned = raw.replace(/[$,]/g, "").trim();
+          const n = parseFloat(cleaned);
+          updated[token] = isNaN(n) ? raw : "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+          // Format: "2500000" → "$2,500,000"
+          updated[token] = formatCurrency(raw);
+        }
         // Compute written variant: "two million five hundred thousand dollars"
         if (def.writtenVariant) {
           updated[def.writtenVariant] = dollarToWritten(raw);
@@ -1208,7 +1226,15 @@ export default function CompletePage() {
         if (varDef.numberField && allVars[varDef.token]) {
           const isDollar = isDollarToken(varDef.token);
           if (isDollar) {
-            allVars[varDef.token] = formatCurrency(allVars[varDef.token]);
+            // PSF fields keep 2 decimal places: "38" → "$38.00"
+            const isPsf = varDef.token === "base_rent_psf" || varDef.token === "ti_allowance_psf";
+            if (isPsf) {
+              const cleaned = allVars[varDef.token].replace(/[$,]/g, "").trim();
+              const n = parseFloat(cleaned);
+              allVars[varDef.token] = isNaN(n) ? allVars[varDef.token] : "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else {
+              allVars[varDef.token] = formatCurrency(allVars[varDef.token]);
+            }
             if (varDef.writtenVariant) {
               allVars[varDef.writtenVariant] = dollarToWritten(extractedVars[varDef.token]);
             }

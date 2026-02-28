@@ -31,7 +31,7 @@ export const DOC_TYPES: DocType[] = [
     description: "Letter of Intent for a commercial lease",
     templateFile: "loi-lease-tokenized.docx",
     sharePointFolder: "/CRE8 Advisors/Documents/LOIs/Lease/",
-    enabled: false,
+    enabled: true,
   },
   {
     id: "listing_sale",
@@ -135,6 +135,37 @@ export const LOI_LAND_VARIABLES: VariableDef[] = [
   { token: "dd_period_written", label: "Due Diligence Period (written)", source: "auto", flag: false },
   { token: "broker_names", label: "CRE8 Broker Name(s)", source: "cms_teams", flag: false },
   { token: "commission_pct", label: "Commission %", source: "user_input", flag: false, defaultValue: "3%" },
+  { token: "cre8_agent_email", label: "CRE8 Agent Email", source: "cms_teams", flag: false },
+  { token: "cre8_agent_phone", label: "CRE8 Agent Phone", source: "cms_teams", flag: false },
+];
+
+// ── LOI Lease Variable Map ──
+
+export const LOI_LEASE_VARIABLES: VariableDef[] = [
+  { token: "date", label: "Date", source: "auto", flag: false },
+  { token: "property_name", label: "Property Name", source: "user_input", flag: false },
+  { token: "property_address", label: "Property Address", source: "user_input", flag: false },
+  { token: "landlord_contact_name", label: "Landlord Contact Name", source: "user_input", flag: false },
+  { token: "tenant_entity", label: "Tenant Entity", source: "user_input", flag: true },
+  { token: "landlord", label: "Landlord Entity", source: "user_input", flag: true },
+  { token: "square_footage", label: "Square Footage", source: "user_input", flag: true, numberField: true },
+  { token: "trade_name", label: "Trade Name", source: "user_input", flag: false },
+  { token: "permitted_use", label: "Permitted Use", source: "user_input", flag: false },
+  { token: "lease_term", label: "Lease Term", source: "user_input", flag: false },
+  { token: "renewal_option", label: "Renewal Option", source: "user_input", flag: false },
+  { token: "base_rent_psf", label: "Base Rent PSF ($)", source: "user_input", flag: true, numberField: true },
+  { token: "free_rent_months", label: "Free Rent Months", source: "user_input", flag: false },
+  { token: "rent_increase_pct", label: "Annual Rent Increase %", source: "user_input", flag: false, defaultValue: "3%" },
+  { token: "rent_commencement_days", label: "Rent Commencement (days)", source: "user_input", flag: false, defaultValue: "180", numberField: true, writtenVariant: "rent_commencement_days_written" },
+  { token: "rent_commencement_days_written", label: "Rent Commencement (written)", source: "auto", flag: false },
+  { token: "guarantor", label: "Guarantor", source: "user_input", flag: false },
+  { token: "security_deposit", label: "Security Deposit", source: "default", flag: false, defaultValue: "Security Deposit shall be equal to one month's rent" },
+  { token: "cam_expenses", label: "CAM Expenses", source: "user_input", flag: false },
+  { token: "exclusive_use", label: "Exclusive Use", source: "user_input", flag: false },
+  { token: "ti_allowance_psf", label: "TI Allowance PSF ($)", source: "user_input", flag: true, numberField: true },
+  { token: "landlord_work", label: "Landlord's Work", source: "user_input", flag: false },
+  { token: "commission_pct", label: "Commission %", source: "user_input", flag: false, defaultValue: "4%" },
+  { token: "broker_names", label: "CRE8 Broker Name(s)", source: "cms_teams", flag: false },
   { token: "cre8_agent_email", label: "CRE8 Agent Email", source: "cms_teams", flag: false },
   { token: "cre8_agent_phone", label: "CRE8 Agent Phone", source: "cms_teams", flag: false },
 ];
@@ -299,12 +330,78 @@ export const LOI_LAND_SECTIONS: FieldSection[] = [
   },
 ];
 
+export const LOI_LEASE_SECTIONS: FieldSection[] = [
+  {
+    title: "Property",
+    tokens: [
+      "property_name",
+      "property_address",
+      "square_footage",
+    ],
+  },
+  {
+    title: "Parties",
+    tokens: [
+      "tenant_entity",
+      "trade_name",
+      "landlord",
+      "landlord_contact_name",
+      "guarantor",
+    ],
+  },
+  {
+    title: "Lease Terms",
+    tokens: [
+      "permitted_use",
+      "lease_term",
+      "renewal_option",
+      "exclusive_use",
+    ],
+  },
+  {
+    title: "Rent",
+    tokens: [
+      "base_rent_psf",
+      "free_rent_months",
+      "rent_increase_pct",
+      "rent_commencement_days",
+      "rent_commencement_days_written",
+      "security_deposit",
+      "cam_expenses",
+    ],
+  },
+  {
+    title: "Tenant Improvements",
+    tokens: [
+      "ti_allowance_psf",
+      "landlord_work",
+    ],
+  },
+  {
+    title: "Commission",
+    tokens: [
+      "commission_pct",
+    ],
+  },
+  {
+    title: "Date & Brokers",
+    tokens: [
+      "date",
+      "broker_names",
+      "cre8_agent_email",
+      "cre8_agent_phone",
+    ],
+  },
+];
+
 export function getFieldSections(docType: string): FieldSection[] {
   switch (docType) {
     case "loi_building":
       return LOI_BUILDING_SECTIONS;
     case "loi_land":
       return LOI_LAND_SECTIONS;
+    case "loi_lease":
+      return LOI_LEASE_SECTIONS;
     default:
       return LOI_BUILDING_SECTIONS;
   }
@@ -318,6 +415,8 @@ export function getVariableMap(docType: string): VariableDef[] {
       return LOI_BUILDING_VARIABLES;
     case "loi_land":
       return LOI_LAND_VARIABLES;
+    case "loi_lease":
+      return LOI_LEASE_VARIABLES;
     default:
       return LOI_BUILDING_VARIABLES; // fallback for now
   }
