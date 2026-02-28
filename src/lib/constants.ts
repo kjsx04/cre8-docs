@@ -148,17 +148,17 @@ export interface FieldSection {
 
 export const LOI_BUILDING_SECTIONS: FieldSection[] = [
   {
-    title: "Parties",
-    tokens: [
-      "buyer_entity",
-      "seller_entity",
-    ],
-  },
-  {
     title: "Property",
     tokens: [
       "property_address",
       "parcel_number",
+    ],
+  },
+  {
+    title: "Parties",
+    tokens: [
+      "buyer_entity",
+      "seller_entity",
     ],
   },
   {
@@ -223,19 +223,19 @@ export const LOI_BUILDING_SECTIONS: FieldSection[] = [
 
 export const LOI_LAND_SECTIONS: FieldSection[] = [
   {
-    title: "Parties",
-    tokens: [
-      "buyer_entity",
-      "seller_entity",
-    ],
-  },
-  {
     title: "Property",
     tokens: [
       "property_address",
       "property_name",
       "parcel_number",
       "acreage",
+    ],
+  },
+  {
+    title: "Parties",
+    tokens: [
+      "buyer_entity",
+      "seller_entity",
     ],
   },
   {
