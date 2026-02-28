@@ -36,9 +36,9 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        {/* Mapbox GL CSS — used by ParcelPickerModal */}
+        {/* Mapbox GL CSS — used by ParcelPickerModal (must match installed version) */}
         <link
-          href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css"
+          href="https://api.mapbox.com/mapbox-gl-js/v3.19.0/mapbox-gl.css"
           rel="stylesheet"
         />
         <title>CRE8 Document Assistant</title>

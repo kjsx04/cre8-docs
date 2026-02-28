@@ -154,6 +154,11 @@ export default function ParcelPickerModal({
 
   // ── Initialize Mapbox map ──
   useEffect(() => {
+    if (!mapboxToken) {
+      console.error("[ParcelPicker] No Mapbox token provided");
+      return;
+    }
+
     // Dynamic import to avoid SSR (mapbox-gl accesses `window`)
     let map: mapboxgl.Map | null = null;
 
@@ -315,6 +320,10 @@ export default function ParcelPickerModal({
         });
 
         setCurrentZoom(map.getZoom());
+
+        // Force Mapbox to recalculate container dimensions
+        // (flex layout may not be fully resolved when map initializes)
+        setTimeout(() => map?.resize(), 0);
 
         // ── Load parcels for current viewport ──
         loadParcels(map);
@@ -541,8 +550,8 @@ export default function ParcelPickerModal({
         </div>
 
         {/* ── Map container ── */}
-        <div className="flex-1 relative">
-          <div ref={mapContainerRef} className="absolute inset-0" />
+        <div className="flex-1 min-h-0 relative">
+          <div ref={mapContainerRef} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }} />
 
           {/* "Zoom in" overlay when below z14 */}
           {currentZoom < 14 && (
