@@ -50,6 +50,7 @@ const LS_FOLDER_KEY = "cre8_docs_save_folder";
 // Currency formatting is deferred to onBlur for these fields so typing isn't disrupted.
 function isDollarToken(token: string): boolean {
   if (token === "price_per_unit") return false; // Display-only token, not a dollar input
+  if (token === "listing_price_display") return false; // Auto-computed display token
   return (
     token.includes("money") ||
     token.includes("deposit") ||
@@ -69,6 +70,9 @@ function CollapsibleSection({
   onFieldBlur,
   aiFillingTokens,
   sectionRef,
+  strictMode,
+  verifiedFields,
+  onToggleVerify,
 }: {
   section: FieldSection;
   varMap: Map<string, VariableDef>;
@@ -78,11 +82,19 @@ function CollapsibleSection({
   onFieldBlur: (token: string) => void;
   aiFillingTokens: Set<string>;
   sectionRef?: (title: string, el: HTMLDivElement | null) => void;
+  strictMode?: boolean;
+  verifiedFields?: Set<string>;
+  onToggleVerify?: (token: string) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
 
-  // Filter out written variant tokens — they're auto-computed, not editable
-  const editableTokens = section.tokens.filter((t) => !writtenTokens.has(t));
+  // Filter out written variant tokens and auto-computed tokens — they're not editable
+  const editableTokens = section.tokens.filter((t) => {
+    if (writtenTokens.has(t)) return false;
+    const def = varMap.get(t);
+    if (def?.source === "auto") return false;
+    return true;
+  });
 
   // Count filled fields
   const filledCount = editableTokens.filter(
@@ -136,6 +148,8 @@ function CollapsibleSection({
             const label = def?.label || token.replace(/_/g, " ");
             const isFilling = aiFillingTokens.has(token);
             const isDollar = !!(def?.numberField && isDollarToken(token));
+            const hasFillValue = !!(fieldValues[token] && fieldValues[token].trim());
+            const isVerified = verifiedFields?.has(token) ?? false;
 
             return (
               <div
@@ -153,20 +167,46 @@ function CollapsibleSection({
                     </span>
                   )}
                 </label>
-                <input
-                  type="text"
-                  value={fieldValues[token] || ""}
-                  onChange={(e) => onFieldChange(token, e.target.value)}
-                  onBlur={() => onFieldBlur(token)}
-                  placeholder={isDollar ? "e.g. 2500000" : ""}
-                  className={`w-full bg-charcoal border rounded px-3 py-1.5
-                             text-white text-sm transition-all duration-300
-                             focus:border-green
-                             ${isFilling
-                               ? "border-green shadow-[0_0_8px_rgba(140,198,68,0.3)]"
-                               : "border-border-gray"
-                             }`}
-                />
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={fieldValues[token] || ""}
+                    onChange={(e) => onFieldChange(token, e.target.value)}
+                    onBlur={() => onFieldBlur(token)}
+                    placeholder={isDollar ? "e.g. 2500000" : ""}
+                    className={`flex-1 bg-charcoal border rounded px-3 py-1.5
+                               text-white text-sm transition-all duration-300
+                               focus:border-green
+                               ${isFilling
+                                 ? "border-green shadow-[0_0_8px_rgba(140,198,68,0.3)]"
+                                 : "border-border-gray"
+                               }`}
+                  />
+                  {/* Verification checkmark — strict mode only */}
+                  {strictMode && onToggleVerify && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleVerify(token)}
+                      disabled={!hasFillValue}
+                      title={
+                        !hasFillValue ? "Fill field first" :
+                        isVerified ? "Verified — click to un-verify" :
+                        "Click to verify this field"
+                      }
+                      className={`flex-shrink-0 w-7 h-7 rounded flex items-center justify-center transition-all duration-200
+                        ${!hasFillValue
+                          ? "bg-charcoal border border-border-gray text-border-gray cursor-not-allowed"
+                          : isVerified
+                            ? "bg-green/15 border border-green text-green hover:bg-green/25"
+                            : "bg-yellow-500/10 border border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/20"
+                        }`}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 6L9 17L4 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -440,6 +480,9 @@ function FieldSidebar({
   onListingChange,
   isAiExtracting,
   onOpenParcelPicker,
+  strictMode,
+  verifiedFields,
+  onToggleVerify,
 }: {
   docTypeId: string;
   sections: FieldSection[];
@@ -467,6 +510,9 @@ function FieldSidebar({
   onListingChange: (id: string) => void;
   isAiExtracting: boolean;
   onOpenParcelPicker: () => void;
+  strictMode?: boolean;
+  verifiedFields?: Set<string>;
+  onToggleVerify?: (token: string) => void;
 }) {
   return (
     <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: "calc(100vh - 180px)" }}>
@@ -488,6 +534,13 @@ function FieldSidebar({
         </div>
       )}
 
+      {/* Verification reminder banner — strict mode only */}
+      {strictMode && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded px-3 py-2 text-yellow-500 text-xs">
+          Verify all filled fields before saving
+        </div>
+      )}
+
       {/* Section header */}
       <h2 className="font-bebas text-lg tracking-wide text-medium-gray mb-1">
         EDIT FIELDS
@@ -496,8 +549,8 @@ function FieldSidebar({
       {/* Field sections — inject helpers before Property and Date & Brokers sections */}
       {sections.map((section) => (
         <div key={section.title}>
-          {/* CMS Dropdowns right before the Date & Brokers section */}
-          {section.title === "Date & Brokers" && (
+          {/* CMS Dropdowns right before the Date & Brokers section — flexible mode only */}
+          {!strictMode && section.title === "Date & Brokers" && (
             <CmsDropdowns
               teamMembers={teamMembers}
               listings={listings}
@@ -532,6 +585,9 @@ function FieldSidebar({
             onFieldBlur={onFieldBlur}
             aiFillingTokens={aiFillingTokens}
             sectionRef={sectionRefs}
+            strictMode={strictMode}
+            verifiedFields={verifiedFields}
+            onToggleVerify={onToggleVerify}
           />
         </div>
       ))}
@@ -571,6 +627,12 @@ export default function CompletePage() {
 
   // AI animation state — tracks which tokens are currently being animated
   const [aiFillingTokens, setAiFillingTokens] = useState<Set<string>>(new Set());
+
+  // Strict mode: is this a listing agreement (legal doc requiring field verification)?
+  const isStrictMode = docType?.mode === "strict";
+
+  // Verification state — tracks which fields the user has explicitly confirmed (strict mode only)
+  const [verifiedFields, setVerifiedFields] = useState<Set<string>>(new Set());
 
   // Track which per-unit price was last manually entered (for LOI Land display)
   // "per_acre" | "per_sqft" | null — determines what shows in {{price_per_unit}}
@@ -674,6 +736,11 @@ export default function CompletePage() {
       }
     }
 
+    // Set default listing_price_display for listing docs
+    if (docType?.id === "listing_sale" || docType?.id === "listing_lease") {
+      defaults.listing_price_display = "The proposed sale price to be determined.";
+    }
+
     // Format currency and compute written variants for defaulted number fields
     for (const varDef of varDefs) {
       if (varDef.numberField && defaults[varDef.token]) {
@@ -693,14 +760,18 @@ export default function CompletePage() {
   }, [varDefs]);
 
   // ── Generate a file name from current field values ──
+  // Prefix varies by doc type: LOI_ for LOIs, Listing_Agreement_Sale_ for listing sale, etc.
   const buildFileName = useCallback((values: Record<string, string>) => {
     const address = (values.property_address || "Draft")
       .replace(/[^a-zA-Z0-9\s]/g, "")
       .replace(/\s+/g, "_")
       .substring(0, 50);
     const dateStr = new Date().toISOString().split("T")[0];
-    return `LOI_${address}_${dateStr}.docx`;
-  }, []);
+    let prefix = "LOI_";
+    if (docType?.id === "listing_sale") prefix = "Listing_Agreement_Sale_";
+    else if (docType?.id === "listing_lease") prefix = "Listing_Agreement_Lease_";
+    return `${prefix}${address}_${dateStr}.docx`;
+  }, [docType]);
 
   // ── Initialize: load from sessionStorage OR build defaults ──
   useEffect(() => {
@@ -910,6 +981,20 @@ export default function CompletePage() {
         }
       }
 
+      // Ensure listing_price_display is up-to-date before generation
+      const isListingDoc = docType.id === "listing_sale" || docType.id === "listing_lease";
+      if (isListingDoc) {
+        const finalPrice = parseFloat((currentValues.listing_price || "").replace(/[$,]/g, "")) || 0;
+        const finalPerAcre = parseFloat((currentValues.price_per_acre || "").replace(/[$,]/g, "")) || 0;
+        if (finalPrice > 0 && finalPerAcre > 0) {
+          currentValues.listing_price_display = `${formatCurrency(String(finalPrice))} (${formatCurrency(String(finalPerAcre))} per acre)`;
+        } else if (finalPrice > 0) {
+          currentValues.listing_price_display = formatCurrency(String(finalPrice));
+        } else {
+          currentValues.listing_price_display = "The proposed sale price to be determined.";
+        }
+      }
+
       const res = await fetch("/api/docs/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1042,15 +1127,62 @@ export default function CompletePage() {
           }
         }
 
+        // ── Listing Agreement: auto-compute listing_price_display ──
+        // Shows formatted price (+ optional per-acre) or default text when empty
+        if (token === "listing_price" || token === "price_per_acre" || token === "acreage") {
+          const isListingDoc = docType?.id === "listing_sale" || docType?.id === "listing_lease";
+          if (isListingDoc) {
+            const rawPrice = (updated.listing_price || "").replace(/[$,]/g, "").trim();
+            const rawPerAcre = (updated.price_per_acre || "").replace(/[$,]/g, "").trim();
+            const priceNum = parseFloat(rawPrice) || 0;
+            const perAcreNum = parseFloat(rawPerAcre) || 0;
+
+            // Auto-calc between listing_price and price_per_acre using acreage
+            const acreageVal = parseFloat((updated.acreage || "").replace(/,/g, "")) || 0;
+            if (token === "listing_price" && priceNum > 0 && acreageVal > 0) {
+              updated.price_per_acre = formatCurrency(String(Math.round(priceNum / acreageVal)));
+            } else if (token === "price_per_acre" && perAcreNum > 0 && acreageVal > 0) {
+              updated.listing_price = formatCurrency(String(Math.round(perAcreNum * acreageVal)));
+            } else if (token === "acreage" && acreageVal > 0) {
+              // Acreage changed — recalc per-acre from listing price
+              const lp = parseFloat((updated.listing_price || "").replace(/[$,]/g, "")) || 0;
+              if (lp > 0) {
+                updated.price_per_acre = formatCurrency(String(Math.round(lp / acreageVal)));
+              }
+            }
+
+            // Build the display string
+            const finalPrice = parseFloat((updated.listing_price || "").replace(/[$,]/g, "")) || 0;
+            const finalPerAcre = parseFloat((updated.price_per_acre || "").replace(/[$,]/g, "")) || 0;
+            if (finalPrice > 0 && finalPerAcre > 0) {
+              updated.listing_price_display = `${formatCurrency(String(finalPrice))} (${formatCurrency(String(finalPerAcre))} per acre)`;
+            } else if (finalPrice > 0) {
+              updated.listing_price_display = formatCurrency(String(finalPrice));
+            } else {
+              updated.listing_price_display = "The proposed sale price to be determined.";
+            }
+          }
+        }
+
         // Mirror to the ref so the debounced callback gets the latest
         fieldValuesRef.current = updated;
         return updated;
       });
 
+      // Strict mode: changing a field resets its verification
+      if (isStrictMode) {
+        setVerifiedFields((prev) => {
+          if (!prev.has(token)) return prev;
+          const next = new Set(prev);
+          next.delete(token);
+          return next;
+        });
+      }
+
       // Start/reset the 1.5s debounce timer for regeneration
       triggerDebouncedRegen();
     },
-    [varMap, triggerDebouncedRegen]
+    [varMap, triggerDebouncedRegen, docType]
   );
 
   // ── Handle blur on a field — formats dollar amounts and triggers regen ──
@@ -1089,6 +1221,20 @@ export default function CompletePage() {
           updated.price_per_unit = `(${updated.price_per_sqft} PSF)`;
         }
 
+        // Recompute listing_price_display after formatting
+        const isListingDoc = docType?.id === "listing_sale" || docType?.id === "listing_lease";
+        if (isListingDoc && (token === "listing_price" || token === "price_per_acre")) {
+          const finalPrice = parseFloat((updated.listing_price || "").replace(/[$,]/g, "")) || 0;
+          const finalPerAcre = parseFloat((updated.price_per_acre || "").replace(/[$,]/g, "")) || 0;
+          if (finalPrice > 0 && finalPerAcre > 0) {
+            updated.listing_price_display = `${formatCurrency(String(finalPrice))} (${formatCurrency(String(finalPerAcre))} per acre)`;
+          } else if (finalPrice > 0) {
+            updated.listing_price_display = formatCurrency(String(finalPrice));
+          } else {
+            updated.listing_price_display = "The proposed sale price to be determined.";
+          }
+        }
+
         // fieldValuesRef is synced here so regenerateDocument picks up formatted value
         fieldValuesRef.current = updated;
         return updated;
@@ -1097,7 +1243,7 @@ export default function CompletePage() {
       // Trigger a regen with the now-formatted value
       triggerDebouncedRegen();
     },
-    [varMap, triggerDebouncedRegen]
+    [varMap, triggerDebouncedRegen, docType]
   );
 
   // ── Handle CRE8 Broker dropdown change ──
@@ -1195,11 +1341,19 @@ export default function CompletePage() {
   const handleParcelConfirm = useCallback(
     (selection: ParcelSelection) => {
       setShowParcelPicker(false);
+      const isListingDoc = docType?.id === "listing_sale" || docType?.id === "listing_lease";
       setFieldValues((prev) => {
         const updated = { ...prev };
         if (selection.property_address) updated.property_address = selection.property_address;
         if (selection.parcel_number) updated.parcel_number = selection.parcel_number;
-        if (selection.seller_entity) updated.seller_entity = selection.seller_entity;
+        // Listing docs use owner_entity instead of seller_entity
+        if (selection.seller_entity) {
+          if (isListingDoc) {
+            updated.owner_entity = selection.seller_entity;
+          } else {
+            updated.seller_entity = selection.seller_entity;
+          }
+        }
         if (selection.acreage) updated.acreage = selection.acreage;
         fieldValuesRef.current = updated;
         return updated;
@@ -1288,6 +1442,35 @@ export default function CompletePage() {
     },
     [varDefs, varMap, regenerateDocument]
   );
+
+  // ── Toggle field verification (strict mode) ──
+  const handleToggleVerify = useCallback((token: string) => {
+    setVerifiedFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(token)) {
+        next.delete(token);
+      } else {
+        next.add(token);
+      }
+      return next;
+    });
+  }, []);
+
+  // ── Check if all filled, non-auto fields are verified (strict mode gate for Save) ──
+  const allFieldsVerified = useMemo(() => {
+    if (!isStrictMode) return true; // Flexible mode — no verification needed
+    // Get all editable tokens (not auto-computed, not written variants)
+    for (const varDef of varDefs) {
+      if (varDef.source === "auto") continue;
+      if (writtenTokens.has(varDef.token)) continue;
+      const val = fieldValues[varDef.token];
+      // If the field is filled, it must be verified
+      if (val && val.trim() !== "" && !verifiedFields.has(varDef.token)) {
+        return false;
+      }
+    }
+    return true;
+  }, [isStrictMode, varDefs, writtenTokens, fieldValues, verifiedFields]);
 
   // Clean up debounce on unmount
   useEffect(() => {
@@ -1406,7 +1589,8 @@ export default function CompletePage() {
             </button>
             <button
               onClick={handleSave}
-              disabled={isRegenerating || !fileBase64}
+              disabled={isRegenerating || !fileBase64 || !allFieldsVerified}
+              title={!allFieldsVerified ? "Verify all filled fields before saving" : ""}
               className="bg-green text-black font-semibold text-sm px-5 py-2.5 rounded-btn
                          hover:brightness-110 transition-all duration-200
                          flex items-center gap-2
@@ -1662,6 +1846,9 @@ export default function CompletePage() {
             onListingChange={handleListingChange}
             isAiExtracting={isAiExtracting}
             onOpenParcelPicker={() => setShowParcelPicker(true)}
+            strictMode={isStrictMode}
+            verifiedFields={verifiedFields}
+            onToggleVerify={handleToggleVerify}
           />
         </div>
       </div>
@@ -1687,7 +1874,7 @@ export default function CompletePage() {
         <ParcelPickerModal
           onConfirm={handleParcelConfirm}
           onClose={() => setShowParcelPicker(false)}
-          includeAcreage={docType.id === "loi_land"}
+          includeAcreage={docType.id === "loi_land" || docType.id === "listing_sale"}
           mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ""}
         />
       )}

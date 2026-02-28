@@ -149,7 +149,11 @@ export default function AIAssistBar({
           <textarea
             value={rawInput}
             onChange={(e) => setRawInput(e.target.value)}
-            placeholder="Describe your deal — buyer, seller, property, price, terms..."
+            placeholder={
+              docTypeId.startsWith("listing_")
+                ? "Paste owner info, property details, price, and term dates..."
+                : "Describe your deal — buyer, seller, property, price, terms..."
+            }
             rows={3}
             disabled={isExtracting}
             className="w-full bg-charcoal border border-border-gray rounded px-3 py-2
@@ -181,7 +185,7 @@ export default function AIAssistBar({
                     <path d="M2 17l10 5 10-5" />
                     <path d="M2 12l10 5 10-5" />
                   </svg>
-                  Update LOI
+                  {docTypeId.startsWith("listing_") ? "Extract Fields" : "Update LOI"}
                 </>
               )}
             </button>

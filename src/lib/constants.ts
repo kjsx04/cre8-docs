@@ -41,7 +41,7 @@ export const DOC_TYPES: DocType[] = [
     description: "Exclusive listing agreement for property sale",
     templateFile: "sale-listing-agreement-tokenized.docx",
     sharePointFolder: "/CRE8 Advisors/Documents/ListingAgreements/Sale/",
-    enabled: false,
+    enabled: true,
   },
   {
     id: "listing_lease",
@@ -168,6 +168,29 @@ export const LOI_LEASE_VARIABLES: VariableDef[] = [
   { token: "broker_names", label: "CRE8 Broker Name(s)", source: "cms_teams", flag: false },
   { token: "cre8_agent_email", label: "CRE8 Agent Email", source: "cms_teams", flag: false },
   { token: "cre8_agent_phone", label: "CRE8 Agent Phone", source: "cms_teams", flag: false },
+];
+
+// ── Listing Agreement — Sale Variable Map (13 tokens) ──
+
+export const LISTING_SALE_VARIABLES: VariableDef[] = [
+  // Property
+  { token: "property_address", label: "Property Address", source: "user_input", flag: false },
+  { token: "county", label: "County", source: "user_input", flag: false, defaultValue: "Maricopa" },
+  { token: "parcel_number", label: "Parcel Number (APN)", source: "user_input", flag: true },
+  { token: "acreage", label: "Acreage", source: "user_input", flag: false },
+  // Owner
+  { token: "owner_entity", label: "Owner Entity", source: "user_input", flag: true },
+  { token: "owner_signer_name", label: "Owner Signer Name", source: "user_input", flag: true },
+  { token: "owner_phone", label: "Owner Phone", source: "user_input", flag: false },
+  { token: "owner_email", label: "Owner Email", source: "user_input", flag: false },
+  { token: "owner_address", label: "Owner Mailing Address", source: "user_input", flag: false },
+  // Agreement Terms
+  { token: "term_start", label: "Agreement Start Date", source: "user_input", flag: false },
+  { token: "term_end", label: "Agreement End Date", source: "user_input", flag: false },
+  // Listing Price (listing_price_display is auto-computed from listing_price + price_per_acre)
+  { token: "listing_price", label: "Listing Price ($)", source: "user_input", flag: true, numberField: true },
+  { token: "price_per_acre", label: "Price Per Acre ($)", source: "user_input", flag: false, numberField: true },
+  { token: "listing_price_display", label: "Listing Price Display", source: "auto", flag: false },
 ];
 
 // ── Section grouping for review screen ──
@@ -394,6 +417,42 @@ export const LOI_LEASE_SECTIONS: FieldSection[] = [
   },
 ];
 
+export const LISTING_SALE_SECTIONS: FieldSection[] = [
+  {
+    title: "Property",
+    tokens: [
+      "property_address",
+      "county",
+      "parcel_number",
+      "acreage",
+    ],
+  },
+  {
+    title: "Owner",
+    tokens: [
+      "owner_entity",
+      "owner_signer_name",
+      "owner_phone",
+      "owner_email",
+      "owner_address",
+    ],
+  },
+  {
+    title: "Agreement Terms",
+    tokens: [
+      "term_start",
+      "term_end",
+    ],
+  },
+  {
+    title: "Listing Price",
+    tokens: [
+      "listing_price",
+      "price_per_acre",
+    ],
+  },
+];
+
 export function getFieldSections(docType: string): FieldSection[] {
   switch (docType) {
     case "loi_building":
@@ -402,6 +461,8 @@ export function getFieldSections(docType: string): FieldSection[] {
       return LOI_LAND_SECTIONS;
     case "loi_lease":
       return LOI_LEASE_SECTIONS;
+    case "listing_sale":
+      return LISTING_SALE_SECTIONS;
     default:
       return LOI_BUILDING_SECTIONS;
   }
@@ -417,6 +478,8 @@ export function getVariableMap(docType: string): VariableDef[] {
       return LOI_LAND_VARIABLES;
     case "loi_lease":
       return LOI_LEASE_VARIABLES;
+    case "listing_sale":
+      return LISTING_SALE_VARIABLES;
     default:
       return LOI_BUILDING_VARIABLES; // fallback for now
   }
