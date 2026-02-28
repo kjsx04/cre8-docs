@@ -148,18 +148,6 @@ export interface FieldSection {
 
 export const LOI_BUILDING_SECTIONS: FieldSection[] = [
   {
-    title: "Date & Brokers",
-    tokens: [
-      "date",
-      "seller_broker_name",
-      "seller_broker_company",
-      "seller_broker_email",
-      "broker_names",
-      "cre8_agent_email",
-      "cre8_agent_phone",
-    ],
-  },
-  {
     title: "Parties",
     tokens: [
       "buyer_entity",
@@ -184,15 +172,6 @@ export const LOI_BUILDING_SECTIONS: FieldSection[] = [
     ],
   },
   {
-    title: "Title & PSA",
-    tokens: [
-      "title_company",
-      "title_agent",
-      "psa_draft_days",
-      "psa_draft_days_written",
-    ],
-  },
-  {
     title: "Timeline",
     tokens: [
       "dd_period",
@@ -201,6 +180,15 @@ export const LOI_BUILDING_SECTIONS: FieldSection[] = [
       "closing_period_written",
       "seller_disclosures_days",
       "seller_disclosures_days_written",
+    ],
+  },
+  {
+    title: "Title & PSA",
+    tokens: [
+      "title_company",
+      "title_agent",
+      "psa_draft_days",
+      "psa_draft_days_written",
     ],
   },
   {
@@ -219,15 +207,11 @@ export const LOI_BUILDING_SECTIONS: FieldSection[] = [
       "commission_pct",
     ],
   },
-];
-
-export const LOI_LAND_SECTIONS: FieldSection[] = [
   {
     title: "Date & Brokers",
     tokens: [
       "date",
       "seller_broker_name",
-      "seller_broker_first_name",
       "seller_broker_company",
       "seller_broker_email",
       "broker_names",
@@ -235,6 +219,9 @@ export const LOI_LAND_SECTIONS: FieldSection[] = [
       "cre8_agent_phone",
     ],
   },
+];
+
+export const LOI_LAND_SECTIONS: FieldSection[] = [
   {
     title: "Parties",
     tokens: [
@@ -262,15 +249,6 @@ export const LOI_LAND_SECTIONS: FieldSection[] = [
     ],
   },
   {
-    title: "Title & PSA",
-    tokens: [
-      "title_company",
-      "title_agent",
-      "psa_draft_days",
-      "psa_draft_days_written",
-    ],
-  },
-  {
     title: "Timeline",
     tokens: [
       "dd_period",
@@ -279,6 +257,15 @@ export const LOI_LAND_SECTIONS: FieldSection[] = [
       "closing_period_written",
       "seller_disclosures_days",
       "seller_disclosures_days_written",
+    ],
+  },
+  {
+    title: "Title & PSA",
+    tokens: [
+      "title_company",
+      "title_agent",
+      "psa_draft_days",
+      "psa_draft_days_written",
     ],
   },
   {
@@ -295,6 +282,19 @@ export const LOI_LAND_SECTIONS: FieldSection[] = [
     title: "Commission",
     tokens: [
       "commission_pct",
+    ],
+  },
+  {
+    title: "Date & Brokers",
+    tokens: [
+      "date",
+      "seller_broker_name",
+      "seller_broker_first_name",
+      "seller_broker_company",
+      "seller_broker_email",
+      "broker_names",
+      "cre8_agent_email",
+      "cre8_agent_phone",
     ],
   },
 ];
