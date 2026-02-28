@@ -13,6 +13,7 @@ import {
   FieldSection,
 } from "@/lib/constants";
 import { VariableDef, CmsTeamMember, CmsListing } from "@/lib/types";
+import { BrokerEntry, BROKER_DIRECTORY } from "@/lib/broker-directory";
 import { graphScopes } from "@/lib/msal-config";
 import {
   getSiteId,
@@ -172,13 +173,153 @@ function CollapsibleSection({
   );
 }
 
+// ── Seller Broker Typeahead — searchable input with dropdown results ──
+function SellerBrokerTypeahead({
+  onSelect,
+}: {
+  onSelect: (broker: BrokerEntry | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightIdx, setHighlightIdx] = useState(-1);
+  const [selectedBroker, setSelectedBroker] = useState<BrokerEntry | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Filter brokers by case-insensitive substring match on name, cap at 8
+  const filtered = useMemo(() => {
+    if (!query.trim()) return [];
+    const q = query.toLowerCase();
+    return BROKER_DIRECTORY.filter((b) => b.name.toLowerCase().includes(q)).slice(0, 8);
+  }, [query]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Pick a broker from the dropdown
+  function selectBroker(broker: BrokerEntry) {
+    setSelectedBroker(broker);
+    setQuery(broker.name);
+    setIsOpen(false);
+    setHighlightIdx(-1);
+    onSelect(broker);
+  }
+
+  // Clear the selection
+  function clearSelection() {
+    setSelectedBroker(null);
+    setQuery("");
+    setIsOpen(false);
+    setHighlightIdx(-1);
+    onSelect(null);
+    inputRef.current?.focus();
+  }
+
+  // Handle keyboard navigation
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!isOpen || filtered.length === 0) {
+      if (e.key === "Escape") setIsOpen(false);
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightIdx((prev) => (prev < filtered.length - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightIdx((prev) => (prev > 0 ? prev - 1 : filtered.length - 1));
+    } else if (e.key === "Enter" && highlightIdx >= 0) {
+      e.preventDefault();
+      selectBroker(filtered[highlightIdx]);
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+    }
+  }
+
+  // On blur: if user typed a name not in the list, still use it as seller_broker_name
+  function handleBlur() {
+    // Small delay so click on dropdown item registers before blur closes it
+    setTimeout(() => {
+      if (!selectedBroker && query.trim()) {
+        onSelect({ name: query.trim(), company: "", email: "", phone: "" });
+      }
+    }, 200);
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+            setHighlightIdx(-1);
+            // If they edit after selecting, clear the selection
+            if (selectedBroker) setSelectedBroker(null);
+          }}
+          onFocus={() => { if (query.trim()) setIsOpen(true); }}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          placeholder="Search seller broker..."
+          className="w-full bg-charcoal border border-border-gray rounded px-3 py-1.5 pr-7
+                     text-white text-sm focus:border-green transition-colors
+                     placeholder:text-border-gray"
+        />
+        {/* Clear button (X) — only shows when there's text */}
+        {query && (
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-medium-gray hover:text-white transition-colors"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Dropdown results */}
+      {isOpen && filtered.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-charcoal border border-border-gray rounded shadow-lg max-h-64 overflow-y-auto">
+          {filtered.map((broker, idx) => (
+            <button
+              key={`${broker.name}-${broker.company}`}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => selectBroker(broker)}
+              onMouseEnter={() => setHighlightIdx(idx)}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm text-left transition-colors ${
+                idx === highlightIdx ? "bg-dark-gray" : "hover:bg-dark-gray"
+              }`}
+            >
+              <span className="text-white truncate">{broker.name}</span>
+              <span className="text-medium-gray text-xs ml-2 truncate max-w-[45%] text-right">{broker.company}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── CMS Dropdowns section (collapsible) ──
 function CmsDropdowns({
   teamMembers,
   listings,
   loadingCms,
   selectedCre8Broker,
-  selectedSellerBroker,
   selectedListing,
   onCre8BrokerChange,
   onSellerBrokerChange,
@@ -188,10 +329,9 @@ function CmsDropdowns({
   listings: CmsListing[];
   loadingCms: boolean;
   selectedCre8Broker: string;
-  selectedSellerBroker: string;
   selectedListing: string;
   onCre8BrokerChange: (id: string) => void;
-  onSellerBrokerChange: (id: string) => void;
+  onSellerBrokerChange: (broker: BrokerEntry | null) => void;
   onListingChange: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -238,24 +378,12 @@ function CmsDropdowns({
             </select>
           </div>
 
-          {/* Seller Broker */}
+          {/* Seller Broker — searchable typeahead */}
           <div>
             <label className="block text-medium-gray text-xs mb-1">
               Seller Broker <span className="text-border-gray">(optional)</span>
             </label>
-            <select
-              value={selectedSellerBroker}
-              onChange={(e) => onSellerBrokerChange(e.target.value)}
-              disabled={loadingCms}
-              className="w-full bg-charcoal border border-border-gray rounded px-3 py-1.5
-                         text-white text-sm focus:border-green transition-colors
-                         disabled:opacity-50"
-            >
-              <option value="">Select or type in AI bar...</option>
-              {teamMembers.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
+            <SellerBrokerTypeahead onSelect={onSellerBrokerChange} />
           </div>
 
           {/* CRE8 Listing */}
@@ -301,7 +429,6 @@ function FieldSidebar({
   listings,
   loadingCms,
   selectedCre8Broker,
-  selectedSellerBroker,
   selectedListing,
   onCre8BrokerChange,
   onSellerBrokerChange,
@@ -329,10 +456,9 @@ function FieldSidebar({
   listings: CmsListing[];
   loadingCms: boolean;
   selectedCre8Broker: string;
-  selectedSellerBroker: string;
   selectedListing: string;
   onCre8BrokerChange: (id: string) => void;
-  onSellerBrokerChange: (id: string) => void;
+  onSellerBrokerChange: (broker: BrokerEntry | null) => void;
   onListingChange: (id: string) => void;
   isAiExtracting: boolean;
   onOpenParcelPicker: () => void;
@@ -353,7 +479,6 @@ function FieldSidebar({
         listings={listings}
         loadingCms={loadingCms}
         selectedCre8Broker={selectedCre8Broker}
-        selectedSellerBroker={selectedSellerBroker}
         selectedListing={selectedListing}
         onCre8BrokerChange={onCre8BrokerChange}
         onSellerBrokerChange={onSellerBrokerChange}
@@ -446,7 +571,6 @@ export default function CompletePage() {
   const [listings, setListings] = useState<CmsListing[]>([]);
   const [loadingCms, setLoadingCms] = useState(true);
   const [selectedCre8Broker, setSelectedCre8Broker] = useState("");
-  const [selectedSellerBroker, setSelectedSellerBroker] = useState("");
   const [selectedListing, setSelectedListing] = useState("");
 
   // Ref that mirrors fieldValues — the debounced callback reads from here
@@ -505,17 +629,18 @@ export default function CompletePage() {
     [varDefs]
   );
 
-  // ── Build CMS context for AI bar (derived from selected dropdowns) ──
+  // ── Build CMS context for AI bar (derived from selected dropdowns + field values) ──
   const cmsContext = useMemo(() => {
     const cre8Broker = teamMembers.find((m) => m.id === selectedCre8Broker);
-    const sellerBroker = teamMembers.find((m) => m.id === selectedSellerBroker);
     const listing = listings.find((l) => l.id === selectedListing);
+    // Seller broker comes from field values (populated by typeahead)
+    const sbName = fieldValues.seller_broker_name;
     return {
       cre8Broker: cre8Broker ? { name: cre8Broker.name, email: cre8Broker.email, phone: cre8Broker.phone } : null,
-      sellerBroker: sellerBroker ? { name: sellerBroker.name, email: sellerBroker.email, phone: sellerBroker.phone } : null,
+      sellerBroker: sbName ? { name: sbName, email: fieldValues.seller_broker_email || "", phone: "" } : null,
       listing: listing ? { name: listing.name, address: listing.address } : null,
     };
-  }, [teamMembers, listings, selectedCre8Broker, selectedSellerBroker, selectedListing]);
+  }, [teamMembers, listings, selectedCre8Broker, selectedListing, fieldValues]);
 
   // ── Build default field values from variable definitions ──
   const buildDefaultValues = useCallback(() => {
@@ -920,18 +1045,18 @@ export default function CompletePage() {
     [teamMembers, triggerDebouncedRegen]
   );
 
-  // ── Handle Seller Broker dropdown change ──
+  // ── Handle Seller Broker typeahead selection ──
   const handleSellerBrokerChange = useCallback(
-    (id: string) => {
-      setSelectedSellerBroker(id);
-      const member = teamMembers.find((m) => m.id === id);
-      if (member) {
+    (broker: BrokerEntry | null) => {
+      if (broker && broker.name) {
         setFieldValues((prev) => {
           const updated = {
             ...prev,
-            seller_broker_name: member.name,
-            seller_broker_company: "",
-            seller_broker_email: member.email,
+            seller_broker_name: broker.name,
+            seller_broker_company: broker.company,
+            seller_broker_email: broker.email,
+            // First name for LOI Land salutation ("Dear Kevin,")
+            seller_broker_first_name: broker.name.split(" ")[0],
           };
           fieldValuesRef.current = updated;
           return updated;
@@ -944,6 +1069,7 @@ export default function CompletePage() {
             seller_broker_name: "",
             seller_broker_company: "",
             seller_broker_email: "",
+            seller_broker_first_name: "",
           };
           fieldValuesRef.current = updated;
           return updated;
@@ -951,7 +1077,7 @@ export default function CompletePage() {
         triggerDebouncedRegen();
       }
     },
-    [teamMembers, triggerDebouncedRegen]
+    [triggerDebouncedRegen]
   );
 
   // ── Handle Listing dropdown change ──
@@ -1435,7 +1561,6 @@ export default function CompletePage() {
             listings={listings}
             loadingCms={loadingCms}
             selectedCre8Broker={selectedCre8Broker}
-            selectedSellerBroker={selectedSellerBroker}
             selectedListing={selectedListing}
             onCre8BrokerChange={handleCre8BrokerChange}
             onSellerBrokerChange={handleSellerBrokerChange}
