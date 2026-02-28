@@ -553,14 +553,15 @@ export default function ParcelPickerModal({
         <div className="flex-1 min-h-0 relative">
           <div ref={mapContainerRef} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }} />
 
-          {/* "Zoom in" overlay when below z14 */}
-          {currentZoom < 14 && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-              <div className="bg-black/70 text-medium-gray text-sm px-4 py-2 rounded-card border border-border-gray">
-                Zoom in to see parcels
-              </div>
+          {/* "Zoom in" overlay — fades out as you approach z14 */}
+          <div
+            className="absolute inset-0 flex items-start justify-center pointer-events-none z-10 pt-16 transition-opacity duration-500"
+            style={{ opacity: currentZoom < 13.5 ? 1 : 0 }}
+          >
+            <div className="bg-black/70 text-medium-gray text-sm px-4 py-2 rounded-card border border-border-gray">
+              Zoom in to see parcels
             </div>
-          )}
+          </div>
 
           {/* Loading indicator */}
           {loadingParcels && currentZoom >= 14 && (
