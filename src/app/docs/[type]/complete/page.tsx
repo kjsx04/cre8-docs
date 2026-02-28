@@ -186,11 +186,13 @@ function SellerBrokerTypeahead({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Filter brokers by case-insensitive substring match on name, cap at 8
+  // Filter brokers by case-insensitive substring match on name or company, cap at 12
   const filtered = useMemo(() => {
     if (!query.trim()) return [];
     const q = query.toLowerCase();
-    return BROKER_DIRECTORY.filter((b) => b.name.toLowerCase().includes(q)).slice(0, 8);
+    return BROKER_DIRECTORY.filter((b) =>
+      b.name.toLowerCase().includes(q) || b.company.toLowerCase().includes(q)
+    ).slice(0, 12);
   }, [query]);
 
   // Close dropdown when clicking outside
