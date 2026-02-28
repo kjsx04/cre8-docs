@@ -98,7 +98,7 @@ export const LOI_BUILDING_VARIABLES: VariableDef[] = [
   { token: "cre8_agent_phone", label: "CRE8 Agent Phone", source: "cms_teams", flag: false },
 ];
 
-// ── LOI Land Variable Map (35 tokens: all LOI Building + 3 new) ──
+// ── LOI Land Variable Map ──
 
 export const LOI_LAND_VARIABLES: VariableDef[] = [
   { token: "date", label: "Date", source: "auto", flag: false },
@@ -110,7 +110,10 @@ export const LOI_LAND_VARIABLES: VariableDef[] = [
   { token: "acreage", label: "Acreage", source: "user_input", flag: false },
   { token: "seller_entity", label: "Seller Entity", source: "user_input", flag: true },
   { token: "buyer_entity", label: "Buyer Entity", source: "user_input", flag: true },
-  { token: "purchase_price", label: "Purchase Price ($)", source: "user_input", flag: true, numberField: true },
+  { token: "purchase_price", label: "Total Purchase Price ($)", source: "user_input", flag: true, numberField: true },
+  { token: "price_per_acre", label: "Price Per Acre ($)", source: "user_input", flag: false, numberField: true },
+  { token: "price_per_sqft", label: "Price Per SF ($)", source: "user_input", flag: false, numberField: true },
+  { token: "price_per_unit", label: "Price Per Unit (display)", source: "auto", flag: false },
   { token: "earnest_money", label: "Earnest Money ($)", source: "user_input", flag: true, numberField: true, writtenVariant: "earnest_money_written" },
   { token: "earnest_money_written", label: "Earnest Money (written)", source: "auto", flag: true },
   { token: "emd_days", label: "Days to Deposit EMD", source: "user_input", flag: false, defaultValue: "3", numberField: true, writtenVariant: "emd_days_written" },
@@ -238,6 +241,8 @@ export const LOI_LAND_SECTIONS: FieldSection[] = [
     title: "Price & Earnest Money",
     tokens: [
       "purchase_price",
+      "price_per_acre",
+      "price_per_sqft",
       "earnest_money",
       "earnest_money_written",
       "emd_days",

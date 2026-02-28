@@ -49,6 +49,7 @@ const LS_FOLDER_KEY = "cre8_docs_save_folder";
 // Helper — is this token a dollar-amount field?
 // Currency formatting is deferred to onBlur for these fields so typing isn't disrupted.
 function isDollarToken(token: string): boolean {
+  if (token === "price_per_unit") return false; // Display-only token, not a dollar input
   return (
     token.includes("money") ||
     token.includes("deposit") ||
@@ -569,6 +570,10 @@ export default function CompletePage() {
   // AI animation state — tracks which tokens are currently being animated
   const [aiFillingTokens, setAiFillingTokens] = useState<Set<string>>(new Set());
 
+  // Track which per-unit price was last manually entered (for LOI Land display)
+  // "per_acre" | "per_sqft" | null — determines what shows in {{price_per_unit}}
+  const lastPriceModeRef = useRef<string | null>(null);
+
   // Team members (hardcoded) + CMS listings
   const teamMembers = CRE8_TEAM;
   const [listings, setListings] = useState<CmsListing[]>([]);
@@ -971,6 +976,62 @@ export default function CompletePage() {
           }
         }
 
+        // ── LOI Land: auto-calc between total price, per acre, and per SF ──
+        // Strip "$" and commas to get raw number for math
+        const stripCurrency = (v: string) => parseFloat((v || "").replace(/[$,]/g, "")) || 0;
+        const priceTokens = ["purchase_price", "price_per_acre", "price_per_sqft"];
+
+        if (priceTokens.includes(token) || token === "acreage") {
+          const acreage = stripCurrency(token === "acreage" ? value : (updated.acreage || ""));
+          const totalSqft = acreage * 43560; // 1 acre = 43,560 SF
+
+          if (token === "price_per_acre" && acreage > 0) {
+            // User typed per acre → calc total and per SF
+            lastPriceModeRef.current = "per_acre";
+            const perAcre = stripCurrency(value);
+            if (perAcre > 0) {
+              updated.purchase_price = formatCurrency(String(Math.round(perAcre * acreage)));
+              updated.price_per_sqft = formatCurrency(String(Math.round((perAcre * acreage) / totalSqft * 100) / 100));
+            }
+          } else if (token === "price_per_sqft" && totalSqft > 0) {
+            // User typed per SF → calc total and per acre
+            lastPriceModeRef.current = "per_sqft";
+            const perSqft = stripCurrency(value);
+            if (perSqft > 0) {
+              updated.purchase_price = formatCurrency(String(Math.round(perSqft * totalSqft)));
+              updated.price_per_acre = formatCurrency(String(Math.round(perSqft * 43560)));
+            }
+          } else if (token === "purchase_price" && acreage > 0) {
+            // User typed total → calc per acre and per SF (but don't set display mode)
+            const total = stripCurrency(value);
+            if (total > 0) {
+              updated.price_per_acre = formatCurrency(String(Math.round(total / acreage)));
+              // PSF: keep 2 decimals for precision (e.g. "$5.75")
+              const psf = total / totalSqft;
+              updated.price_per_sqft = "$" + psf.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+          } else if (token === "acreage") {
+            // Acreage changed — recalc per-unit from total if available
+            const total = stripCurrency(updated.purchase_price || "");
+            if (total > 0 && acreage > 0) {
+              updated.price_per_acre = formatCurrency(String(Math.round(total / acreage)));
+              const psf = total / totalSqft;
+              updated.price_per_sqft = "$" + psf.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+          }
+
+          // Compute the display token for the template
+          // Only shows if user explicitly entered per acre or per SF
+          const mode = lastPriceModeRef.current;
+          if (mode === "per_acre" && updated.price_per_acre) {
+            updated.price_per_unit = `(${updated.price_per_acre} per acre)`;
+          } else if (mode === "per_sqft" && updated.price_per_sqft) {
+            updated.price_per_unit = `(${updated.price_per_sqft} PSF)`;
+          } else {
+            updated.price_per_unit = "";
+          }
+        }
+
         // Mirror to the ref so the debounced callback gets the latest
         fieldValuesRef.current = updated;
         return updated;
@@ -1000,6 +1061,14 @@ export default function CompletePage() {
         // Compute written variant: "two million five hundred thousand dollars"
         if (def.writtenVariant) {
           updated[def.writtenVariant] = dollarToWritten(raw);
+        }
+
+        // Update price_per_unit display after formatting
+        const mode = lastPriceModeRef.current;
+        if (mode === "per_acre" && updated.price_per_acre) {
+          updated.price_per_unit = `(${updated.price_per_acre} per acre)`;
+        } else if (mode === "per_sqft" && updated.price_per_sqft) {
+          updated.price_per_unit = `(${updated.price_per_sqft} PSF)`;
         }
 
         // fieldValuesRef is synced here so regenerateDocument picks up formatted value
