@@ -1483,6 +1483,7 @@ export default function CompletePage() {
           onConfirm={handleParcelConfirm}
           onClose={() => setShowParcelPicker(false)}
           includeAcreage={docType.id === "loi_land"}
+          mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ""}
         />
       )}
     </div>

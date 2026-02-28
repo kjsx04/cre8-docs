@@ -69,8 +69,7 @@ const DYNAMIC_SOURCES: DynamicSource[] = [
   },
 ];
 
-// ── Mapbox token (public — loaded from env, same token as cre8-map) ──
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+// ── Mapbox token passed as prop from parent (avoids build-time inlining issues) ──
 
 // ── Field mapping helpers per county ──
 
@@ -122,6 +121,7 @@ export default function ParcelPickerModal({
   onConfirm,
   onClose,
   includeAcreage = false,
+  mapboxToken,
 }: {
   /** Called when user clicks Done — returns selected parcel data */
   onConfirm: (selection: ParcelSelection) => void;
@@ -129,6 +129,8 @@ export default function ParcelPickerModal({
   onClose: () => void;
   /** Whether to populate acreage (true for LOI Land, false for LOI Building) */
   includeAcreage?: boolean;
+  /** Mapbox public access token */
+  mapboxToken: string;
 }) {
   // Map container ref
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -158,7 +160,7 @@ export default function ParcelPickerModal({
     import("mapbox-gl").then((mapboxgl) => {
       if (!mapContainerRef.current) return;
 
-      mapboxgl.default.accessToken = MAPBOX_TOKEN;
+      mapboxgl.default.accessToken = mapboxToken;
 
       // Build custom satellite + dark overlay style (same as cre8-map)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -169,7 +171,7 @@ export default function ParcelPickerModal({
           "mapbox-satellite": {
             type: "raster",
             tiles: [
-              `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${MAPBOX_TOKEN}`,
+              `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${mapboxToken}`,
             ],
             tileSize: 256,
             maxzoom: 19,
@@ -177,7 +179,7 @@ export default function ParcelPickerModal({
           "mapbox-streets": {
             type: "raster",
             tiles: [
-              `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+              `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`,
             ],
             tileSize: 256,
           },
