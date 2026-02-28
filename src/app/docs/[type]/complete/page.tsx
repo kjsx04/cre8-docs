@@ -29,6 +29,13 @@ import DocPreview from "@/components/DocPreview";
 import FolderPicker from "@/components/FolderPicker";
 import SharePointBreadcrumb from "@/components/SharePointBreadcrumb";
 import AIAssistBar from "@/components/AIAssistBar";
+import dynamic from "next/dynamic";
+import type { ParcelSelection } from "@/components/ParcelPickerModal";
+
+// Dynamic import — mapbox-gl accesses `window` so it can't render on the server
+const ParcelPickerModal = dynamic(() => import("@/components/ParcelPickerModal"), {
+  ssr: false,
+});
 
 type PageState = "preview" | "saving" | "saved" | "error";
 // Mobile tabs: "form" shows the edit sidebar, "preview" shows the doc
@@ -299,6 +306,7 @@ function FieldSidebar({
   onSellerBrokerChange,
   onListingChange,
   isAiExtracting,
+  onOpenParcelPicker,
 }: {
   docTypeId: string;
   sections: FieldSection[];
@@ -326,6 +334,7 @@ function FieldSidebar({
   onSellerBrokerChange: (id: string) => void;
   onListingChange: (id: string) => void;
   isAiExtracting: boolean;
+  onOpenParcelPicker: () => void;
 }) {
   return (
     <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: "calc(100vh - 180px)" }}>
@@ -365,19 +374,34 @@ function FieldSidebar({
         EDIT FIELDS
       </h2>
 
-      {/* Field sections */}
+      {/* Field sections — inject "Select from Map" button before the Property section */}
       {sections.map((section) => (
-        <CollapsibleSection
-          key={section.title}
-          section={section}
-          varMap={varMap}
-          writtenTokens={writtenTokens}
-          fieldValues={fieldValues}
-          onFieldChange={onFieldChange}
-          onFieldBlur={onFieldBlur}
-          aiFillingTokens={aiFillingTokens}
-          sectionRef={sectionRefs}
-        />
+        <div key={section.title}>
+          {/* "Select from Map" button at the top of the Property section */}
+          {section.title === "Property" && (
+            <button
+              onClick={onOpenParcelPicker}
+              className="flex items-center gap-1.5 text-green text-xs font-medium mb-2 hover:brightness-125 transition-all"
+            >
+              {/* Map pin icon */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              Select from Map
+            </button>
+          )}
+          <CollapsibleSection
+            section={section}
+            varMap={varMap}
+            writtenTokens={writtenTokens}
+            fieldValues={fieldValues}
+            onFieldChange={onFieldChange}
+            onFieldBlur={onFieldBlur}
+            aiFillingTokens={aiFillingTokens}
+            sectionRef={sectionRefs}
+          />
+        </div>
       ))}
     </div>
   );
@@ -454,6 +478,9 @@ export default function CompletePage() {
 
   // Folder picker modal state
   const [showFolderPicker, setShowFolderPicker] = useState(false);
+
+  // Parcel picker modal state
+  const [showParcelPicker, setShowParcelPicker] = useState(false);
 
   // Graph API IDs (fetched once when needed)
   const [driveId, setDriveId] = useState("");
@@ -966,6 +993,25 @@ export default function CompletePage() {
     [listings, triggerDebouncedRegen]
   );
 
+  // ── Handle parcel picker confirm — merge selected parcel data into fields ──
+  const handleParcelConfirm = useCallback(
+    (selection: ParcelSelection) => {
+      setShowParcelPicker(false);
+      setFieldValues((prev) => {
+        const updated = { ...prev };
+        if (selection.property_address) updated.property_address = selection.property_address;
+        if (selection.parcel_number) updated.parcel_number = selection.parcel_number;
+        if (selection.seller_entity) updated.seller_entity = selection.seller_entity;
+        if (selection.acreage) updated.acreage = selection.acreage;
+        fieldValuesRef.current = updated;
+        return updated;
+      });
+      // Trigger doc regeneration so the preview updates immediately
+      triggerDebouncedRegen();
+    },
+    [triggerDebouncedRegen]
+  );
+
   // ── Handle AI extraction result — staggered field animation ──
   const handleAiExtracted = useCallback(
     (extractedVars: Record<string, string>) => {
@@ -1410,6 +1456,7 @@ export default function CompletePage() {
             onSellerBrokerChange={handleSellerBrokerChange}
             onListingChange={handleListingChange}
             isAiExtracting={isAiExtracting}
+            onOpenParcelPicker={() => setShowParcelPicker(true)}
           />
         </div>
       </div>
@@ -1427,6 +1474,15 @@ export default function CompletePage() {
           currentPath={saveFolder}
           onSelect={updateSaveFolder}
           onClose={() => setShowFolderPicker(false)}
+        />
+      )}
+
+      {/* Parcel Picker Modal — map-based parcel selection */}
+      {showParcelPicker && (
+        <ParcelPickerModal
+          onConfirm={handleParcelConfirm}
+          onClose={() => setShowParcelPicker(false)}
+          includeAcreage={docType.id === "loi_land"}
         />
       )}
     </div>
