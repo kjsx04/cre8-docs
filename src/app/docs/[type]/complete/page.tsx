@@ -9,6 +9,7 @@ import {
   getFieldSections,
   SP_DRAFTS_FOLDER,
   CMS_API_BASE,
+  CRE8_TEAM,
   FieldSection,
 } from "@/lib/constants";
 import { VariableDef, CmsTeamMember, CmsListing } from "@/lib/types";
@@ -440,8 +441,8 @@ export default function CompletePage() {
   // AI animation state — tracks which tokens are currently being animated
   const [aiFillingTokens, setAiFillingTokens] = useState<Set<string>>(new Set());
 
-  // CMS data
-  const [teamMembers, setTeamMembers] = useState<CmsTeamMember[]>([]);
+  // Team members (hardcoded) + CMS listings
+  const teamMembers = CRE8_TEAM;
   const [listings, setListings] = useState<CmsListing[]>([]);
   const [loadingCms, setLoadingCms] = useState(true);
   const [selectedCre8Broker, setSelectedCre8Broker] = useState("");
@@ -643,27 +644,11 @@ export default function CompletePage() {
     }
   }
 
-  // ── Fetch CMS data (teams + listings) ──
+  // ── Fetch CMS listings (team members are hardcoded in constants.ts) ──
   useEffect(() => {
-    async function fetchCmsData() {
+    async function fetchListings() {
       try {
-        const [teamsRes, listingsRes] = await Promise.all([
-          fetch(`${CMS_API_BASE}/teams`),
-          fetch(`${CMS_API_BASE}/listings`),
-        ]);
-
-        if (teamsRes.ok) {
-          const teamsData = await teamsRes.json();
-          const members: CmsTeamMember[] = (teamsData.items || []).map(
-            (item: Record<string, unknown>) => ({
-              id: item.id || (item as Record<string, unknown>)._id,
-              name: (item as Record<string, Record<string, string>>).fieldData?.name || (item as Record<string, string>).name || "",
-              email: (item as Record<string, Record<string, string>>).fieldData?.email || (item as Record<string, string>).email || "",
-              phone: (item as Record<string, Record<string, string>>).fieldData?.phone || (item as Record<string, string>).phone || "",
-            })
-          );
-          setTeamMembers(members);
-        }
+        const listingsRes = await fetch(`${CMS_API_BASE}/listings`);
 
         if (listingsRes.ok) {
           const listingsData = await listingsRes.json();
@@ -679,13 +664,13 @@ export default function CompletePage() {
           setListings(items);
         }
       } catch (err) {
-        console.error("Error fetching CMS data:", err);
+        console.error("Error fetching CMS listings:", err);
       } finally {
         setLoadingCms(false);
       }
     }
 
-    fetchCmsData();
+    fetchListings();
   }, []);
 
   // ── Auto-detect logged-in broker from MSAL account ──

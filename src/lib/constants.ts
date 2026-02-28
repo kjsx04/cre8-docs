@@ -334,6 +334,18 @@ export const WEBFLOW_COLLECTIONS = {
   teams: "6987ab2475108817b767c3e0",
 };
 
+// ── CRE8 Team Members (hardcoded — no CMS dependency) ──
+
+import { CmsTeamMember } from "./types";
+
+export const CRE8_TEAM: CmsTeamMember[] = [
+  { id: "rommie",  name: "Rommie Mojahed", email: "Rommie@cre8Advisors.com", phone: "602.702.4663" },
+  { id: "andy",    name: "Andy Kroot",      email: "Andy@CRE8Advisors.com",   phone: "602.430.8589" },
+  { id: "lindsey", name: "Lindsey Dulle",   email: "Lindsey@cre8advisors.com", phone: "602.317.7713" },
+  { id: "chad",    name: "Chad Shipley",    email: "Chad@cre8advisors.com",    phone: "480.220.5954" },
+  { id: "kevin",   name: "Kevin Smith",     email: "Kevin@cre8advisors.com",   phone: "518.428.8316" },
+];
+
 // ── SharePoint ──
 
 export const SP_SITE_URL = "https://cre8advisors.sharepoint.com/sites/CRE8Operations";
