@@ -736,9 +736,16 @@ export default function CompletePage() {
       }
     }
 
-    // Set default listing_price_display for listing docs
+    // Set defaults for listing docs
     if (docType?.id === "listing_sale" || docType?.id === "listing_lease") {
       defaults.listing_price_display = "The proposed sale price to be determined.";
+
+      // Auto-populate term_start = today, term_end = 1 year from today
+      const termStart = new Date();
+      const termEnd = new Date();
+      termEnd.setFullYear(termEnd.getFullYear() + 1);
+      defaults.term_start = termStart.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+      defaults.term_end = termEnd.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     }
 
     // Format currency and compute written variants for defaulted number fields
