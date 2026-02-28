@@ -1058,8 +1058,6 @@ export default function CompletePage() {
             seller_broker_name: broker.name,
             seller_broker_company: broker.company,
             seller_broker_email: broker.email,
-            // First name for LOI Land salutation ("Dear Kevin,")
-            seller_broker_first_name: broker.name.split(" ")[0],
           };
           fieldValuesRef.current = updated;
           return updated;
@@ -1072,7 +1070,6 @@ export default function CompletePage() {
             seller_broker_name: "",
             seller_broker_company: "",
             seller_broker_email: "",
-            seller_broker_first_name: "",
           };
           fieldValuesRef.current = updated;
           return updated;

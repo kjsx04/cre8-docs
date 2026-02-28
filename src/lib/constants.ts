@@ -103,12 +103,9 @@ export const LOI_BUILDING_VARIABLES: VariableDef[] = [
 export const LOI_LAND_VARIABLES: VariableDef[] = [
   { token: "date", label: "Date", source: "auto", flag: false },
   { token: "seller_broker_name", label: "Seller Broker Name", source: "cms_teams", flag: false },
-  // seller_broker_first_name is used for the letter salutation ("Dear Rommie,")
-  { token: "seller_broker_first_name", label: "Seller Broker First Name (salutation)", source: "user_input", flag: false },
   { token: "seller_broker_company", label: "Seller Broker Company", source: "cms_teams", flag: false },
   { token: "seller_broker_email", label: "Seller Broker Email", source: "cms_teams", flag: false },
   { token: "property_address", label: "Property Address", source: "cms_listing", flag: false },
-  { token: "property_name", label: "Property Name", source: "user_input", flag: false },
   { token: "parcel_number", label: "Parcel Number(s)", source: "user_input", flag: true },
   { token: "acreage", label: "Acreage", source: "user_input", flag: false },
   { token: "seller_entity", label: "Seller Entity", source: "user_input", flag: true },
@@ -226,7 +223,6 @@ export const LOI_LAND_SECTIONS: FieldSection[] = [
     title: "Property",
     tokens: [
       "property_address",
-      "property_name",
       "parcel_number",
       "acreage",
     ],
@@ -289,7 +285,6 @@ export const LOI_LAND_SECTIONS: FieldSection[] = [
     tokens: [
       "date",
       "seller_broker_name",
-      "seller_broker_first_name",
       "seller_broker_company",
       "seller_broker_email",
       "broker_names",
