@@ -51,7 +51,7 @@ export const DOC_TYPES: DocType[] = [
     description: "Exclusive listing agreement for property lease",
     templateFile: "lease-listing-agreement-tokenized.docx",
     sharePointFolder: "/CRE8 Advisors/Documents/ListingAgreements/Lease/",
-    enabled: false,
+    enabled: true,
   },
 ];
 
@@ -191,6 +191,32 @@ export const LISTING_SALE_VARIABLES: VariableDef[] = [
   { token: "listing_price", label: "Listing Price ($)", source: "user_input", flag: true, numberField: true },
   { token: "price_per_acre", label: "Price Per Acre ($)", source: "user_input", flag: false, numberField: true },
   { token: "listing_price_display", label: "Listing Price Display", source: "auto", flag: false },
+];
+
+// ── Listing Agreement — Lease Variable Map (16 tokens: same 14 as Sale + rent + lease_term) ──
+
+export const LISTING_LEASE_VARIABLES: VariableDef[] = [
+  // Property
+  { token: "property_address", label: "Property Address", source: "user_input", flag: false },
+  { token: "county", label: "County", source: "user_input", flag: false, defaultValue: "Maricopa" },
+  { token: "parcel_number", label: "Parcel Number (APN)", source: "user_input", flag: true },
+  { token: "acreage", label: "Acreage", source: "user_input", flag: false },
+  // Owner
+  { token: "owner_entity", label: "Owner Entity", source: "user_input", flag: true },
+  { token: "owner_signer_name", label: "Owner Signer Name", source: "user_input", flag: true },
+  { token: "owner_phone", label: "Owner Phone", source: "user_input", flag: false },
+  { token: "owner_email", label: "Owner Email", source: "user_input", flag: false },
+  { token: "owner_address", label: "Owner Mailing Address", source: "user_input", flag: false },
+  // Agreement Terms
+  { token: "term_start", label: "Agreement Start Date", source: "user_input", flag: false },
+  { token: "term_end", label: "Agreement End Date", source: "user_input", flag: false },
+  // Listing Price (listing_price_display is auto-computed from listing_price + price_per_acre)
+  { token: "listing_price", label: "Listing Price ($)", source: "user_input", flag: true, numberField: true },
+  { token: "price_per_acre", label: "Price Per Acre ($)", source: "user_input", flag: false, numberField: true },
+  { token: "listing_price_display", label: "Listing Price Display", source: "auto", flag: false },
+  // Lease Terms
+  { token: "rent", label: "Rent", source: "user_input", flag: true },
+  { token: "lease_term", label: "Lease Term", source: "user_input", flag: false },
 ];
 
 // ── Section grouping for review screen ──
@@ -453,6 +479,49 @@ export const LISTING_SALE_SECTIONS: FieldSection[] = [
   },
 ];
 
+export const LISTING_LEASE_SECTIONS: FieldSection[] = [
+  {
+    title: "Property",
+    tokens: [
+      "property_address",
+      "county",
+      "parcel_number",
+      "acreage",
+    ],
+  },
+  {
+    title: "Owner",
+    tokens: [
+      "owner_entity",
+      "owner_signer_name",
+      "owner_phone",
+      "owner_email",
+      "owner_address",
+    ],
+  },
+  {
+    title: "Agreement Terms",
+    tokens: [
+      "term_start",
+      "term_end",
+    ],
+  },
+  {
+    title: "Listing Price",
+    tokens: [
+      "listing_price",
+      "price_per_acre",
+    ],
+  },
+  {
+    title: "Lease Terms",
+    tokens: [
+      "rent",
+      "lease_term",
+    ],
+  },
+];
+
 export function getFieldSections(docType: string): FieldSection[] {
   switch (docType) {
     case "loi_building":
@@ -463,6 +532,8 @@ export function getFieldSections(docType: string): FieldSection[] {
       return LOI_LEASE_SECTIONS;
     case "listing_sale":
       return LISTING_SALE_SECTIONS;
+    case "listing_lease":
+      return LISTING_LEASE_SECTIONS;
     default:
       return LOI_BUILDING_SECTIONS;
   }
@@ -480,6 +551,8 @@ export function getVariableMap(docType: string): VariableDef[] {
       return LOI_LEASE_VARIABLES;
     case "listing_sale":
       return LISTING_SALE_VARIABLES;
+    case "listing_lease":
+      return LISTING_LEASE_VARIABLES;
     default:
       return LOI_BUILDING_VARIABLES; // fallback for now
   }

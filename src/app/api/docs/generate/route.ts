@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       loi_land: "loi-land-tokenized.docx",
       loi_lease: "loi-lease-tokenized.docx",
       listing_sale: "sale-listing-agreement-tokenized.docx",
+      listing_lease: "lease-listing-agreement-tokenized.docx",
     };
 
     const templateFileName = templateMap[docType];
