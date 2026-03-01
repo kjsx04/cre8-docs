@@ -38,10 +38,11 @@ export default function DocsPage() {
     <div className="max-w-xl mx-auto px-6 py-12">
       {/* Header */}
       <div className="mb-10 text-center">
-        <h1 className="font-bebas text-4xl tracking-wide text-white mb-2">
-          CREATE <span className="text-green">DOCUMENT</span>
-        </h1>
-        <p className="text-medium-gray text-sm">
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <img src="/cre8-logo.svg" alt="CRE8" className="h-7 w-auto" />
+          <span className="font-bebas text-[24px] tracking-wide text-[#1a1a1a]">Docs</span>
+        </div>
+        <p className="text-[#999] text-sm">
           Select a document type to get started.
         </p>
       </div>
@@ -51,12 +52,12 @@ export default function DocsPage() {
         {CATEGORIES.map((cat) => (
           <div key={cat.label}>
             {/* Category heading */}
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-medium-gray mb-2 px-1">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-[#999] mb-2 px-1">
               {cat.label}
             </h2>
 
             {/* List of items inside a rounded container */}
-            <div className="rounded-lg border border-border-gray overflow-hidden">
+            <div className="rounded-lg border border-[#E5E5E5] bg-white overflow-hidden">
               {cat.items.map((item, i) => {
                 const enabled = isEnabled(item.slug);
                 return (
@@ -65,16 +66,16 @@ export default function DocsPage() {
                     onClick={() => handleClick(item.slug)}
                     disabled={!enabled}
                     className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors duration-150
-                      ${enabled ? "hover:bg-dark-gray cursor-pointer" : "opacity-40 cursor-not-allowed"}
-                      ${i > 0 ? "border-t border-border-gray" : ""}`}
+                      ${enabled ? "hover:bg-[#F8F8F8] cursor-pointer" : "opacity-40 cursor-not-allowed"}
+                      ${i > 0 ? "border-t border-[#E5E5E5]" : ""}`}
                   >
-                    <span className="text-white text-sm font-medium">
+                    <span className="text-[#1a1a1a] text-sm font-medium">
                       {item.name}
                     </span>
                     <div className="flex items-center gap-2">
                       {/* "Coming Soon" badge for disabled items */}
                       {!enabled && (
-                        <span className="text-[10px] text-medium-gray uppercase tracking-wide">
+                        <span className="text-[10px] text-[#999] uppercase tracking-wide">
                           Coming Soon
                         </span>
                       )}
@@ -84,7 +85,7 @@ export default function DocsPage() {
                         height="14"
                         viewBox="0 0 16 16"
                         fill="none"
-                        className={enabled ? "text-medium-gray" : "text-border-gray"}
+                        className={enabled ? "text-[#999]" : "text-[#CCC]"}
                       >
                         <path
                           d="M6 12L10 8L6 4"

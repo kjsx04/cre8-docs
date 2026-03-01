@@ -7,7 +7,7 @@ import Link from "next/link";
 /* Navigation tabs — add more here as new sections are built */
 const NAV_ITEMS = [
   { label: "Listings", href: "/" },
-  { label: "Documents", href: "/docs" },
+  { label: "Docs", href: "/docs" },
 ];
 
 export default function NavBar() {

@@ -167,28 +167,18 @@ export default function DashboardPage() {
     return "bg-[#FFEAEA] text-[#CC3333]"; // Sold
   };
 
-  // ---- Row click → open on site ----
-  const handleRowClick = (item: ListingItem) => {
-    const slug = item.fieldData?.slug;
-    if (slug) {
-      window.open(`https://www.cre8advisors.com/listings/${slug}`, "_blank");
-    }
-  };
+  // ---- Row click — no-op for now (will open edit form in Phase 2) ----
 
   return (
     <AppShell>
       <div className="px-6 py-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-        {/* ---- Toolbar: count + search + filters ---- */}
-        <div className="flex items-center gap-3 mb-4 flex-wrap">
-          {/* Listing count */}
-          <span className="text-sm text-medium-gray whitespace-nowrap">
-            {filteredItems.length === items.length
-              ? `All ${items.length}`
-              : `${filteredItems.length} of ${items.length}`}
-          </span>
+        {/* ---- Page heading ---- */}
+        <h1 className="text-2xl font-bold text-[#1a1a1a] mb-4">Listings</h1>
 
+        {/* ---- Toolbar: tabs + filters + search ---- */}
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
           {/* Status tabs */}
-          <div className="flex items-center gap-1 ml-2">
+          <div className="flex items-center gap-1">
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab}
@@ -196,33 +186,13 @@ export default function DashboardPage() {
                 className={`px-3 py-1 rounded-btn text-xs font-semibold transition-colors duration-150
                   ${
                     activeStatus === tab
-                      ? "bg-white text-[#1a1a1a]"
-                      : "text-medium-gray hover:text-white"
+                      ? "bg-white text-[#1a1a1a] border border-[#E5E5E5] shadow-sm"
+                      : "text-[#999] hover:text-[#333] border border-transparent"
                   }`}
               >
                 {tab}
               </button>
             ))}
-          </div>
-
-          {/* Search */}
-          <div className="relative ml-auto">
-            <input
-              type="text"
-              placeholder="Search listings..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-dark-gray border border-border-gray rounded-btn px-3 py-1.5 text-sm text-white
-                         placeholder:text-medium-gray outline-none focus:border-green transition-colors w-52"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-medium-gray hover:text-white text-xs"
-              >
-                ✕
-              </button>
-            )}
           </div>
 
           {/* Property Type filter pill */}
@@ -236,8 +206,8 @@ export default function DashboardPage() {
               className={`px-3 py-1.5 rounded-btn text-xs font-semibold border transition-colors duration-150
                 ${
                   activePropertyTypes.length > 0
-                    ? "bg-white text-[#1a1a1a] border-white"
-                    : "text-medium-gray border-border-gray hover:text-white hover:border-medium-gray"
+                    ? "bg-[#1a1a1a] text-white border-[#1a1a1a]"
+                    : "text-[#333] border-[#E5E5E5] hover:border-[#CCC]"
                 }`}
             >
               Property Type{activePropertyTypes.length > 0 ? ` (${activePropertyTypes.length})` : ""} ▾
@@ -296,8 +266,8 @@ export default function DashboardPage() {
               className={`px-3 py-1.5 rounded-btn text-xs font-semibold border transition-colors duration-150
                 ${
                   activeBrokers.length > 0
-                    ? "bg-white text-[#1a1a1a] border-white"
-                    : "text-medium-gray border-border-gray hover:text-white hover:border-medium-gray"
+                    ? "bg-[#1a1a1a] text-white border-[#1a1a1a]"
+                    : "text-[#333] border-[#E5E5E5] hover:border-[#CCC]"
                 }`}
             >
               Broker{activeBrokers.length > 0 ? ` (${activeBrokers.length})` : ""} ▾
@@ -343,6 +313,43 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+
+          {/* Listing count */}
+          <span className="text-sm text-[#999] whitespace-nowrap">
+            {filteredItems.length === items.length
+              ? `All ${items.length}`
+              : `${filteredItems.length} of ${items.length}`}
+          </span>
+
+          {/* Search — pushed right */}
+          <div className="relative ml-auto">
+            <input
+              type="text"
+              placeholder="Search listings..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-white border border-[#E5E5E5] rounded-btn px-3 py-1.5 text-sm text-[#333]
+                         placeholder:text-[#999] outline-none focus:border-green transition-colors w-52"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#999] hover:text-[#333] text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* + New Listing button */}
+          <button
+            disabled
+            title="Coming soon"
+            className="bg-green text-black font-semibold px-4 py-1.5 rounded-btn text-sm
+                       opacity-50 cursor-not-allowed"
+          >
+            + New Listing
+          </button>
         </div>
 
         {/* ---- Table ---- */}
@@ -406,9 +413,8 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={item.id}
-                    onClick={() => handleRowClick(item)}
                     className="grid gap-0 px-5 py-[11px] items-center border-b border-[#F0F0F0] last:border-b-0
-                               text-[13px] text-[#333] cursor-pointer hover:bg-[#F8F8F8] transition-colors relative group"
+                               text-[13px] text-[#333] hover:bg-[#F8F8F8] transition-colors relative group"
                     style={{
                       gridTemplateColumns:
                         "2fr 1fr 1.2fr 1.5fr 1fr 0.6fr 0.7fr 0.8fr",

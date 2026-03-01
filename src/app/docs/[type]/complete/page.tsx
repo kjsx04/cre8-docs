@@ -1709,7 +1709,7 @@ export default function CompletePage() {
   // ── Render ──
   // ══════════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)]">
+    <div className="flex flex-col h-[calc(100vh-56px)] bg-black">
       {/* AI fill animation styles */}
       <style jsx global>{`
         .ai-filling input {
