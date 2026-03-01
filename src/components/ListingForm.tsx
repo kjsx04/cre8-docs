@@ -2,14 +2,23 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   ListingItem,
   ListingFieldData,
   LISTING_TYPES,
   PROPERTY_TYPES,
   BROKERS,
+  MAPBOX_TOKEN,
   slugify,
 } from "@/lib/admin-constants";
+import RichTextEditor from "@/components/RichTextEditor";
+
+// Dynamic import — Mapbox uses window/document, can't render server-side
+const ListingMapPicker = dynamic(
+  () => import("@/components/ListingMapPicker"),
+  { ssr: false, loading: () => <div className="w-full h-[300px] rounded-btn border border-[#E5E5E5] bg-[#F5F5F5] animate-pulse" /> }
+);
 
 /* ============================================================
    TYPES
@@ -208,6 +217,10 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
         zoning: fd.zoning || "",
         "zoning-municipality": fd["zoning-municipality"] || "",
         "listing-brokers": fd["listing-brokers"] || [],
+        latitude: fd.latitude ?? null,
+        longitude: fd.longitude ?? null,
+        "google-maps-link": fd["google-maps-link"] || "",
+        "property-overview": fd["property-overview"] || "",
         available: fd.available !== false, // default ON
         sold: fd.sold || false,
         featured: fd.featured || false,
@@ -230,6 +243,10 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
       zoning: "",
       "zoning-municipality": "",
       "listing-brokers": [],
+      latitude: null,
+      longitude: null,
+      "google-maps-link": "",
+      "property-overview": "",
       available: true,
       sold: false,
       featured: false,
@@ -279,6 +296,18 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
     // Brokers
     const brokers = fields["listing-brokers"] as string[];
     if (brokers.length > 0) fd["listing-brokers"] = brokers;
+
+    // Map coordinates
+    if (fields.latitude != null && fields.longitude != null) {
+      fd.latitude = fields.latitude as number;
+      fd.longitude = fields.longitude as number;
+      fd["google-maps-link"] =
+        `https://www.google.com/maps?q=${fields.latitude},${fields.longitude}`;
+    }
+
+    // Rich text
+    const overview = String(fields["property-overview"] || "").trim();
+    if (overview) fd["property-overview"] = overview;
 
     // Toggles
     fd.available = fields.available as boolean;
@@ -547,6 +576,53 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
           </div>
         </div>
       ))}
+
+      {/* ---- Property Overview (rich text) ---- */}
+      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white overflow-hidden">
+        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
+          <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
+            Property Overview
+          </h2>
+        </div>
+        <div className="px-5 py-4">
+          <RichTextEditor
+            value={String(fields["property-overview"] || "")}
+            onChange={(html) => updateField("property-overview", html)}
+            placeholder="Enter property overview..."
+          />
+        </div>
+      </div>
+
+      {/* ---- Location Map ---- */}
+      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white overflow-hidden">
+        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
+          <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
+            Location
+          </h2>
+        </div>
+        <div className="px-5 py-4">
+          {MAPBOX_TOKEN ? (
+            <ListingMapPicker
+              mapboxToken={MAPBOX_TOKEN}
+              latitude={fields.latitude as number | null}
+              longitude={fields.longitude as number | null}
+              onChange={(lat, lng) => {
+                setFields((prev) => ({
+                  ...prev,
+                  latitude: lat,
+                  longitude: lng,
+                  "google-maps-link": `https://www.google.com/maps?q=${lat},${lng}`,
+                }));
+                scheduleAutoSave();
+              }}
+            />
+          ) : (
+            <p className="text-sm text-[#999]">
+              Mapbox token not configured — map unavailable.
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 
