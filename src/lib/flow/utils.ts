@@ -227,7 +227,7 @@ export type AdvancementResult =
 /**
  * Check if a deal should auto-advance based on dates.
  * - active → due_diligence: if effective_date is today or past
- * - due_diligence → closing: if earliest non-extension deal_date has passed
+ * - due_diligence → closing: only if ALL non-extension deal_dates have passed
  *   (extension dates trigger a prompt instead of silent advance)
  */
 export function checkStatusAdvancement(deal: Deal): AdvancementResult {
@@ -243,25 +243,36 @@ export function checkStatusAdvancement(deal: Deal): AdvancementResult {
   }
 
   // Due Diligence → Closing: check deal_dates
+  // Only advance when ALL non-extension dates have passed.
+  // If any non-extension date is still future, DD is still active.
+  // A past extension date triggers a prompt regardless.
   if (deal.status === "due_diligence" && deal.deal_dates && deal.deal_dates.length > 0) {
-    // Sort deal_dates by date ascending
-    const sorted = [...deal.deal_dates].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    let pastExtension: DealDate | null = null;
+    let anyFutureNonExtension = false;
 
-    // Check each date from earliest to latest
-    for (const dd of sorted) {
+    for (const dd of deal.deal_dates) {
       const ddDate = new Date(dd.date + "T00:00:00");
-      if (ddDate > today) break; // all remaining dates are future — stop
+      const isPast = ddDate <= today;
 
-      // This date has passed
       if (isExtensionDate(dd.label)) {
-        // Extension date passed — needs user prompt before moving
-        return { action: "prompt_extension", datePassed: dd };
-      } else {
-        // Regular date passed — auto-move to closing
-        return { action: "advance", newStatus: "closing" };
+        // Track the first past extension date for prompt
+        if (isPast && !pastExtension) {
+          pastExtension = dd;
+        }
+      } else if (!isPast) {
+        // A non-extension date is still in the future — DD is still active
+        anyFutureNonExtension = true;
       }
+    }
+
+    // Past extension date → prompt takes priority
+    if (pastExtension) {
+      return { action: "prompt_extension", datePassed: pastExtension };
+    }
+
+    // Only advance if ALL non-extension dates have passed
+    if (!anyFutureNonExtension) {
+      return { action: "advance", newStatus: "closing" };
     }
   }
 
