@@ -240,6 +240,7 @@ export default function FlowPage() {
         <DealDetail
           deal={selectedDeal}
           brokerId={brokerId}
+          allBrokers={allBrokers}
           onUpdate={handleUpdate}
           onClose={() => setSelectedDeal(null)}
         />

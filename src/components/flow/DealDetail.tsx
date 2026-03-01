@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Deal, DealFormData, DealDate } from "@/lib/flow/types";
+import { Deal, DealFormData, DealDate, Broker } from "@/lib/flow/types";
 import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS } from "@/lib/flow/utils";
 import TimelineBar from "./TimelineBar";
 import CommissionCalc from "./CommissionCalc";
@@ -11,11 +11,12 @@ import ConfirmModal from "./ConfirmModal";
 interface DealDetailProps {
   deal: Deal;
   brokerId?: string;
+  allBrokers?: Pick<Broker, "id" | "name" | "email">[];
   onUpdate: (id: string, data: Partial<Deal> | DealFormData, dealDates?: DealDate[]) => Promise<void>;
   onClose: () => void;
 }
 
-export default function DealDetail({ deal, onUpdate, onClose }: DealDetailProps) {
+export default function DealDetail({ deal, brokerId, allBrokers, onUpdate, onClose }: DealDetailProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -235,6 +236,8 @@ export default function DealDetail({ deal, onUpdate, onClose }: DealDetailProps)
           onCancel={() => setEditing(false)}
           saving={saving}
           mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+          brokerId={brokerId}
+          allBrokers={allBrokers}
         />
       )}
 
