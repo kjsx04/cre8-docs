@@ -152,6 +152,7 @@ const SECTIONS: SectionDef[] = [
         type: "select",
         required: true,
         options: listingTypeOptions,
+        half: true,
       },
       {
         key: "property-type",
@@ -159,6 +160,7 @@ const SECTIONS: SectionDef[] = [
         type: "select",
         required: true,
         options: propertyTypeOptions,
+        half: true,
       },
       {
         key: "zoning",
@@ -631,7 +633,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
       {SECTIONS.map((section) => (
         <div
           key={section.title}
-          className="mb-6 border border-[#E5E5E5] rounded-card bg-white overflow-hidden"
+          className="mb-6 border border-[#E5E5E5] rounded-card bg-white"
         >
           {/* Section header */}
           <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
@@ -649,7 +651,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
       ))}
 
       {/* ---- Property Overview (rich text) ---- */}
-      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white overflow-hidden">
+      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white">
         <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
           <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
             Property Overview
@@ -665,7 +667,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
       </div>
 
       {/* ---- Available Spaces ---- */}
-      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white overflow-hidden">
+      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white">
         <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
           <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
             Available Spaces
@@ -680,7 +682,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
       </div>
 
       {/* ---- Location Map ---- */}
-      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white overflow-hidden">
+      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white">
         <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
           <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
             Location
@@ -711,7 +713,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
       </div>
 
       {/* ---- Package & Assets ---- */}
-      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white overflow-hidden">
+      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white">
         <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
           <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
             Package & Assets
@@ -826,7 +828,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
           i++;
         }
         elements.push(
-          <div key="toggles" className="flex flex-wrap gap-6 mt-1">
+          <div key="toggles" className="flex flex-wrap gap-8 py-1 mt-1">
             {toggles.map((t) => renderToggle(t))}
           </div>
         );
@@ -985,7 +987,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
         >
           {/* Toggle knob */}
           <span
-            className={`absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-transform duration-200
+            className={`absolute left-0 top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-transform duration-200
               ${isOn ? "translate-x-[20px]" : "translate-x-[2px]"}`}
           />
         </span>

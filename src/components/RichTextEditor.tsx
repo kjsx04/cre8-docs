@@ -103,7 +103,7 @@ export default function RichTextEditor({
           contentEditable
           onInput={handleInput}
           onBlur={handleInput}
-          className="w-full min-h-[120px] bg-white border border-[#E5E5E5] rounded-btn px-3 py-2
+          className="w-full min-h-[200px] bg-white border border-[#E5E5E5] rounded-btn px-3 py-2
                      text-sm text-[#333] outline-none focus:border-green transition-colors
                      [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-[#BBB]"
           data-placeholder={placeholder}
