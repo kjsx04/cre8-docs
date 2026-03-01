@@ -36,10 +36,10 @@ export default function AuthGate({ children }: AuthGateProps) {
         <div className="text-center max-w-md px-6">
           {/* Logo / Title */}
           <h1 className="font-bebas text-5xl tracking-wide text-white mb-2">
-            CRE8 <span className="text-green">DOCS</span>
+            CRE8 <span className="text-green">ADMIN</span>
           </h1>
           <p className="text-medium-gray text-sm mb-8">
-            AI-Powered Document Assistant
+            Sign in to manage listings and documents
           </p>
 
           {/* Sign in button */}

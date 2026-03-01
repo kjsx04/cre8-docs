@@ -41,8 +41,8 @@ export default function RootLayout({
           href="https://api.mapbox.com/mapbox-gl-js/v3.19.0/mapbox-gl.css"
           rel="stylesheet"
         />
-        <title>CRE8 Document Assistant</title>
-        <meta name="description" content="AI-powered document generator for CRE8 Advisors" />
+        <title>CRE8 Admin</title>
+        <meta name="description" content="CRE8 Advisors admin portal" />
       </head>
       <body className="font-dm antialiased">
         {ready ? (

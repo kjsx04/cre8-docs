@@ -1,15 +1,11 @@
 "use client";
 
-import AuthGate from "@/components/AuthGate";
-import NavBar from "@/components/NavBar";
+import AppShell from "@/components/AppShell";
 
+/**
+ * Docs section layout — wraps all /docs pages in the shared AppShell
+ * (AuthGate + NavBar + main container).
+ */
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <AuthGate>
-      <div className="min-h-screen bg-black flex flex-col">
-        <NavBar />
-        <main className="flex-1">{children}</main>
-      </div>
-    </AuthGate>
-  );
+  return <AppShell>{children}</AppShell>;
 }
