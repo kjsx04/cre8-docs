@@ -10,9 +10,9 @@ import { Deal, DealFormData, DealStatus, BrokerDefaults, DealDate, Broker } from
 import {
   formatCurrency,
   formatDate,
-  calcCommission,
   calcMemberTakeHome,
   getMemberSplit,
+  getCriticalDates,
   getNextCriticalDate,
   countdownText,
   checkStatusAdvancement,
@@ -48,6 +48,9 @@ export default function FlowPage() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // ── Editable forecast day windows (default 30/60/90) ──
+  const [forecastDays, setForecastDays] = useState([30, 60, 90]);
 
   // ── View toggle: board (default) vs list — persisted in localStorage ──
   const [viewMode, setViewMode] = useState<"board" | "list">(() => {
@@ -325,11 +328,34 @@ export default function FlowPage() {
   // Summary stats (active deals only) — uses member-specific take-home for logged-in broker
   const activeDeals = deals.filter((d) => ["active", "due_diligence", "closing"].includes(d.status));
   const totalPipeline = activeDeals.reduce((sum, d) => sum + (d.price || 0), 0);
-  const totalCommission = activeDeals.reduce((sum, d) => sum + calcCommission(d.price, d.commission_rate), 0);
   const totalTakeHome = activeDeals.reduce((sum, d) => {
     const memberSplit = getMemberSplit(d.deal_members, brokerId);
     return sum + calcMemberTakeHome(d.price, d.commission_rate, d.broker_split, d.additional_splits || [], memberSplit);
   }, 0);
+
+  // Get estimated close date for a deal — last (latest) critical date in the timeline
+  const getEstimatedCloseDate = (deal: Deal): Date | null => {
+    const dates = getCriticalDates(deal);
+    if (dates.length === 0) return null;
+    // The last date in the sorted timeline is the close date
+    return dates[dates.length - 1].date;
+  };
+
+  // Calculate forecast take-home: sum take-home for deals closing within N days from today
+  const calcForecastTakeHome = (days: number): number => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cutoff = new Date(today);
+    cutoff.setDate(cutoff.getDate() + days);
+
+    return activeDeals.reduce((sum, deal) => {
+      const closeDate = getEstimatedCloseDate(deal);
+      if (!closeDate) return sum; // no dates = skip
+      if (closeDate > cutoff) return sum; // closing after the window
+      const memberSplit = getMemberSplit(deal.deal_members, brokerId);
+      return sum + calcMemberTakeHome(deal.price, deal.commission_rate, deal.broker_split, deal.additional_splits || [], memberSplit);
+    }, 0);
+  };
 
   // Next urgent date across all active deals
   const urgentDate = activeDeals
@@ -343,11 +369,36 @@ export default function FlowPage() {
   return (
     <div className="px-6 py-6 max-w-6xl mx-auto">
       {/* Summary bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-[1fr_1fr_1fr_1.5fr] gap-4 mb-6">
         <SummaryCard label="Active Deals" value={String(activeDeals.length)} />
         <SummaryCard label="Pipeline Value" value={formatCurrency(totalPipeline)} />
-        <SummaryCard label="Total Commission" value={formatCurrency(totalCommission)} />
         <SummaryCard label="Total Take-Home" value={formatCurrency(totalTakeHome)} accent />
+        {/* Forecast card — 3 sub-columns with editable day windows */}
+        <div className="bg-white border border-border-light rounded-card p-4">
+          <p className="text-xs text-muted-gray mb-2">Take-Home Forecast</p>
+          <div className="flex">
+            {forecastDays.map((days, i) => (
+              <div key={i} className={`flex-1 text-center ${i > 0 ? "border-l border-border-light pl-3" : ""} ${i < forecastDays.length - 1 ? "pr-3" : ""}`}>
+                <p className="text-lg font-bold text-green">{formatCurrency(calcForecastTakeHome(days))}</p>
+                <div className="flex items-center justify-center gap-1 mt-1">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={days}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value.replace(/\D/g, "")) || 0;
+                      setForecastDays((prev) => prev.map((d, j) => (j === i ? val : d)));
+                    }}
+                    className="w-[3ch] text-xs text-center text-medium-gray border-b border-transparent bg-transparent
+                               hover:border-border-light focus:outline-none focus:border-green focus:text-charcoal
+                               [appearance:textfield]"
+                  />
+                  <span className="text-xs text-muted-gray">days</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Auto-move notification bar */}

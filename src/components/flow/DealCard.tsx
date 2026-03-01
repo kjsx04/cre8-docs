@@ -41,9 +41,6 @@ export default function DealCard({ deal, onClick, draggable, onDragStart, onDrag
       {/* Top row — deal name */}
       <div className="mb-3">
         <h3 className="font-dm font-semibold text-charcoal truncate">{deal.deal_name}</h3>
-        {deal.property_address && (
-          <p className="text-xs text-muted-gray truncate mt-0.5">{deal.property_address}</p>
-        )}
       </div>
 
       {/* Middle — price + take-home */}
