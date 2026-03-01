@@ -636,7 +636,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
           className="mb-6 border border-[#E5E5E5] rounded-card bg-white"
         >
           {/* Section header */}
-          <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
+          <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA] rounded-t-card">
             <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
               {section.title}
             </h2>
@@ -652,7 +652,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
 
       {/* ---- Property Overview (rich text) ---- */}
       <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white">
-        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
+        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA] rounded-t-card">
           <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
             Property Overview
           </h2>
@@ -668,7 +668,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
 
       {/* ---- Available Spaces ---- */}
       <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white">
-        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
+        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA] rounded-t-card">
           <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
             Available Spaces
           </h2>
@@ -683,7 +683,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
 
       {/* ---- Location Map ---- */}
       <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white">
-        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
+        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA] rounded-t-card">
           <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
             Location
           </h2>
@@ -714,7 +714,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
 
       {/* ---- Package & Assets ---- */}
       <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white">
-        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
+        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA] rounded-t-card">
           <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
             Package & Assets
           </h2>
@@ -736,7 +736,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
           </div>
 
           {/* Alta Survey + Site Plan — side by side */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FileUploadZone
               label="Alta Survey"
               file={altaFile}
@@ -839,7 +839,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
       if (f.half && i + 1 < fieldDefs.length && fieldDefs[i + 1].half) {
         const f2 = fieldDefs[i + 1];
         elements.push(
-          <div key={`row-${i}`} className="grid grid-cols-2 gap-4">
+          <div key={`row-${i}`} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {renderTextField(f)}
             {renderTextField(f2)}
           </div>
@@ -897,7 +897,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
           {f.required && <span className="text-[#CC3333] ml-0.5">*</span>}
         </label>
         <input
-          type={f.type === "number" ? "text" : "text"}
+          type="text"
           inputMode={f.type === "number" ? "decimal" : undefined}
           value={value}
           onChange={(e) => updateField(key, e.target.value)}

@@ -68,7 +68,7 @@ export default function RichTextEditor({
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => execCmd("bold")}
-          className="w-8 h-8 rounded border border-[#E5E5E5] flex items-center justify-center
+          className="w-8 h-8 rounded-btn border border-[#E5E5E5] flex items-center justify-center
                      text-sm font-bold text-[#666] hover:bg-[#F5F5F5] hover:text-[#333] transition-colors"
           title="Bold"
         >
@@ -78,7 +78,7 @@ export default function RichTextEditor({
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => execCmd("italic")}
-          className="w-8 h-8 rounded border border-[#E5E5E5] flex items-center justify-center
+          className="w-8 h-8 rounded-btn border border-[#E5E5E5] flex items-center justify-center
                      text-sm italic text-[#666] hover:bg-[#F5F5F5] hover:text-[#333] transition-colors"
           title="Italic"
         >
@@ -88,7 +88,7 @@ export default function RichTextEditor({
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => execCmd("insertUnorderedList")}
-          className="w-8 h-8 rounded border border-[#E5E5E5] flex items-center justify-center
+          className="w-8 h-8 rounded-btn border border-[#E5E5E5] flex items-center justify-center
                      text-xs text-[#666] hover:bg-[#F5F5F5] hover:text-[#333] transition-colors"
           title="Bullet List"
         >
