@@ -18,6 +18,11 @@ const config: Config = {
         "medium-gray": "#666666",
         "light-gray": "#F5F5F5",
         "border-gray": "#333333",
+        // Flow component colors
+        "muted-gray": "#999999",
+        "subtle-gray": "#FAFAFA",
+        "border-light": "#E5E5E5",
+        "border-medium": "#D0D0D0",
       },
       fontFamily: {
         bebas: ['"Bebas Neue"', "sans-serif"],
