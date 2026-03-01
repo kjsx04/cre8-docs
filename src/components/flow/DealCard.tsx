@@ -6,8 +6,6 @@ import {
   calcTakeHome,
   getNextCriticalDate,
   countdownText,
-  STATUS_LABELS,
-  STATUS_COLORS,
 } from "@/lib/flow/utils";
 
 interface DealCardProps {
@@ -40,24 +38,19 @@ export default function DealCard({ deal, onClick, draggable, onDragStart, onDrag
                  hover:border-green/40 transition-colors duration-200
                  ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
-      {/* Top row — name + status badge */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="min-w-0">
-          <h3 className="font-dm font-semibold text-charcoal truncate">{deal.deal_name}</h3>
-          {deal.property_address && (
-            <p className="text-xs text-muted-gray truncate mt-0.5">{deal.property_address}</p>
-          )}
-        </div>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded border flex-shrink-0 ${STATUS_COLORS[deal.status]}`}>
-          {STATUS_LABELS[deal.status]}
-        </span>
+      {/* Top row — deal name */}
+      <div className="mb-3">
+        <h3 className="font-dm font-semibold text-charcoal truncate">{deal.deal_name}</h3>
+        {deal.property_address && (
+          <p className="text-xs text-muted-gray truncate mt-0.5">{deal.property_address}</p>
+        )}
       </div>
 
       {/* Middle — price + take-home */}
       <div className="flex items-baseline gap-4 mb-3">
         <div>
           <span className="text-xs text-muted-gray block">Price</span>
-          <span className="text-sm font-medium">{formatCurrency(deal.price)}</span>
+          <span className="text-sm font-medium text-charcoal">{formatCurrency(deal.price)}</span>
         </div>
         <div>
           <span className="text-xs text-muted-gray block">Take-Home</span>
@@ -65,7 +58,7 @@ export default function DealCard({ deal, onClick, draggable, onDragStart, onDrag
         </div>
         <div>
           <span className="text-xs text-muted-gray block">Type</span>
-          <span className="text-sm font-medium capitalize">{deal.deal_type}</span>
+          <span className="text-sm font-medium text-charcoal capitalize">{deal.deal_type}</span>
         </div>
       </div>
 
