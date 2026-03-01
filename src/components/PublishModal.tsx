@@ -1,9 +1,24 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useMsal } from "@azure/msal-react";
 import SparkMD5 from "spark-md5";
 import type { PackageAssets } from "@/components/PackageUploader";
-import type { ListingFieldData } from "@/lib/admin-constants";
+import {
+  LISTING_TYPES,
+  PROPERTY_TYPES,
+  BROKERS,
+  type ListingFieldData,
+} from "@/lib/admin-constants";
+import { graphScopes } from "@/lib/msal-config";
+import {
+  getSiteId,
+  getDriveId,
+  uploadToSharePoint,
+  createListingFolders,
+  syncToExcel,
+  type ExcelListingData,
+} from "@/lib/graph";
 
 /* ============================================================
    TYPES
@@ -38,7 +53,7 @@ interface PublishModalProps {
 }
 
 /** Step status for the progress display */
-type StepStatus = "waiting" | "active" | "done" | "skipped" | "error";
+type StepStatus = "waiting" | "active" | "done" | "skipped" | "error" | "warn";
 
 interface StepState {
   label: string;
@@ -70,10 +85,8 @@ async function uploadAsset(
   fileName: string,
   folderId: string
 ): Promise<{ id: string; hostedUrl: string }> {
-  // 1. Compute MD5 hash
   const hash = await md5Hash(blob);
 
-  // 2. Get presigned URL from our API → Worker → Webflow
   const metaRes = await fetch("/api/assets/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -90,7 +103,6 @@ async function uploadAsset(
     throw new Error("No upload URL from Webflow");
   }
 
-  // 3. Upload directly to S3 using presigned form fields
   const form = new FormData();
   const d = meta.uploadDetails;
   const s3Fields = [
@@ -111,6 +123,19 @@ async function uploadAsset(
   return { id: meta.id, hostedUrl: meta.hostedUrl };
 }
 
+/** Strip HTML tags and truncate to maxLen characters */
+function stripHtml(html: string, maxLen = 500): string {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  const text = div.textContent || div.innerText || "";
+  return text.length > maxLen ? text.slice(0, maxLen) : text;
+}
+
+/** Convert a Blob to ArrayBuffer */
+function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  return blob.arrayBuffer();
+}
+
 /* ============================================================
    COMPONENT
    ============================================================ */
@@ -126,7 +151,9 @@ export default function PublishModal({
   onComplete,
   onClose,
 }: PublishModalProps) {
-  // ---- Step definitions ----
+  const { instance, accounts } = useMsal();
+
+  // ---- Step definitions (10 steps total) ----
   const initialSteps: StepState[] = [
     { label: "Create asset folder", status: "waiting" },
     { label: "Upload package PDF", status: "waiting" },
@@ -136,6 +163,8 @@ export default function PublishModal({
     { label: "Processing assets", status: "waiting" },
     { label: "Save listing to CMS", status: "waiting" },
     { label: "Publish to live site", status: "waiting" },
+    { label: "SharePoint sync", status: "waiting" },
+    { label: "Excel sync", status: "waiting" },
   ];
 
   const [steps, setSteps] = useState<StepState[]>(initialSteps);
@@ -153,6 +182,26 @@ export default function PublishModal({
     },
     []
   );
+
+  // ---- Acquire Graph API token ----
+  const getGraphToken = useCallback(async (): Promise<string | null> => {
+    try {
+      const account = accounts[0];
+      if (!account) return null;
+      const response = await instance.acquireTokenSilent({
+        ...graphScopes,
+        account,
+      });
+      return response.accessToken;
+    } catch {
+      try {
+        const response = await instance.acquireTokenPopup(graphScopes);
+        return response.accessToken;
+      } catch {
+        return null;
+      }
+    }
+  }, [instance, accounts]);
 
   // ---- Main publish flow ----
   const runPublish = useCallback(async () => {
@@ -173,7 +222,6 @@ export default function PublishModal({
 
     try {
       /* ---- STEP 0: Create asset folder ---- */
-      // Only needed if we have new files to upload
       const hasNewFiles =
         packageAssets.packageFile ||
         packageAssets.galleryImages.some((img) => img.blob) ||
@@ -219,8 +267,6 @@ export default function PublishModal({
       );
       if (newGalleryImages.length > 0) {
         updateStep(2, "active", `0 / ${newGalleryImages.length}`);
-
-        // Reset gallery URLs — we'll rebuild from scratch
         urls.gallery = [];
         urls.marketing = null;
 
@@ -228,17 +274,13 @@ export default function PublishModal({
           const img = packageAssets.galleryImages[i];
 
           if (img.blob) {
-            // New image — upload it
             updateStep(2, "active", `${urls.gallery.length + 1} / ${packageAssets.galleryImages.length}`);
             const result = await uploadAsset(img.blob, img.name, folderId);
             urls.gallery.push(result.hostedUrl);
-
-            // Track marketing image
             if (i === packageAssets.marketingIdx) {
               urls.marketing = result.hostedUrl;
             }
           } else if (img.isExisting && img.url) {
-            // Existing image — keep URL
             urls.gallery.push(img.url);
             if (i === packageAssets.marketingIdx) {
               urls.marketing = img.url;
@@ -250,7 +292,6 @@ export default function PublishModal({
 
         updateStep(2, "done", `${urls.gallery.length} images`);
       } else if (packageAssets.galleryImages.length > 0) {
-        // All existing images — keep current URLs
         urls.gallery = packageAssets.galleryImages
           .filter((img) => img.url)
           .map((img) => img.url);
@@ -268,11 +309,7 @@ export default function PublishModal({
       /* ---- STEP 3: Upload alta survey ---- */
       if (altaFile) {
         updateStep(3, "active");
-        const result = await uploadAsset(
-          altaFile,
-          `${slug}-alta-survey.pdf`,
-          folderId
-        );
+        const result = await uploadAsset(altaFile, `${slug}-alta-survey.pdf`, folderId);
         urls.alta = result.hostedUrl;
         updateStep(3, "done");
       } else {
@@ -284,11 +321,7 @@ export default function PublishModal({
       /* ---- STEP 4: Upload site plan ---- */
       if (sitePlanFile) {
         updateStep(4, "active");
-        const result = await uploadAsset(
-          sitePlanFile,
-          `${slug}-site-plan.pdf`,
-          folderId
-        );
+        const result = await uploadAsset(sitePlanFile, `${slug}-site-plan.pdf`, folderId);
         urls.sitePlan = result.hostedUrl;
         updateStep(4, "done");
       } else {
@@ -311,10 +344,8 @@ export default function PublishModal({
       /* ---- STEP 6: Create/Update CMS item ---- */
       updateStep(6, "active");
 
-      // Build full payload with asset URLs
       const fullFieldData: Record<string, unknown> = { ...fieldData };
 
-      // Image fields
       if (urls.marketing) {
         fullFieldData.floorplan = {
           url: urls.marketing,
@@ -328,7 +359,6 @@ export default function PublishModal({
         }));
       }
 
-      // File fields (plain URLs)
       if (urls.packagePdf) fullFieldData["package-2"] = urls.packagePdf;
       if (urls.alta) fullFieldData["alta-survey-2"] = urls.alta;
       if (urls.sitePlan) fullFieldData["site-plan-2"] = urls.sitePlan;
@@ -336,7 +366,6 @@ export default function PublishModal({
       let cmsItemId = itemId;
 
       if (itemId) {
-        // Edit mode — PATCH existing item and mark as not draft
         const res = await fetch(`/api/listings/${itemId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -348,7 +377,6 @@ export default function PublishModal({
         });
         if (!res.ok) throw new Error(`CMS update failed: ${res.status}`);
       } else {
-        // New listing — POST
         const res = await fetch("/api/listings/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -377,8 +405,150 @@ export default function PublishModal({
       if (!pubRes.ok) throw new Error(`Publish failed: ${pubRes.status}`);
       updateStep(7, "done");
 
+      /* ---- STEP 8: SharePoint sync (non-blocking) ---- */
+      let graphToken: string | null = null;
+      let driveId = "";
+
+      try {
+        updateStep(8, "active");
+        graphToken = await getGraphToken();
+
+        if (!graphToken) {
+          updateStep(8, "warn", "No Graph token");
+        } else {
+          const siteId = await getSiteId(graphToken);
+          driveId = await getDriveId(graphToken, siteId);
+
+          // Create folder structure
+          updateStep(8, "active", "Creating folders");
+          await createListingFolders(graphToken, driveId, listingName);
+
+          // Upload files to SharePoint
+          const spBase = `Listings/Active/${listingName}`;
+
+          // Package PDF
+          if (packageAssets.packageFile) {
+            updateStep(8, "active", "Uploading package");
+            const buf = await blobToArrayBuffer(packageAssets.packageFile);
+            await uploadToSharePoint(
+              graphToken, siteId, driveId,
+              `${spBase}/Package/`, `${slug}-package.pdf`,
+              buf, "application/pdf"
+            );
+          }
+
+          // Gallery images
+          const galleryBlobs = packageAssets.galleryImages.filter((img) => img.blob);
+          for (let i = 0; i < galleryBlobs.length; i++) {
+            updateStep(8, "active", `Photos ${i + 1}/${galleryBlobs.length}`);
+            const buf = await blobToArrayBuffer(galleryBlobs[i].blob!);
+            await uploadToSharePoint(
+              graphToken, siteId, driveId,
+              `${spBase}/Photos/`, `${slug}-${i + 1}.jpg`,
+              buf, "image/jpeg"
+            );
+          }
+
+          // Alta survey
+          if (altaFile) {
+            updateStep(8, "active", "Uploading alta");
+            const buf = await altaFile.arrayBuffer();
+            await uploadToSharePoint(
+              graphToken, siteId, driveId,
+              `${spBase}/Documents/`, `${slug}-alta-survey.pdf`,
+              buf, "application/pdf"
+            );
+          }
+
+          // Site plan
+          if (sitePlanFile) {
+            updateStep(8, "active", "Uploading site plan");
+            const buf = await sitePlanFile.arrayBuffer();
+            await uploadToSharePoint(
+              graphToken, siteId, driveId,
+              `${spBase}/Documents/`, `${slug}-site-plan.pdf`,
+              buf, "application/pdf"
+            );
+          }
+
+          updateStep(8, "done");
+        }
+      } catch (spErr) {
+        console.warn("[PublishModal] SharePoint sync failed:", spErr);
+        updateStep(8, "warn", "Failed — non-critical");
+      }
+
+      /* ---- STEP 9: Excel sync (non-blocking) ---- */
+      try {
+        if (!graphToken || !driveId) {
+          updateStep(9, "warn", "No Graph token");
+        } else {
+          updateStep(9, "active");
+
+          // Map broker IDs to names
+          const brokerIds = (fieldData["listing-brokers"] || []) as string[];
+          const brokerNames = brokerIds.map((id) => BROKERS[id] || "").filter(Boolean);
+
+          // Map listing type ID to display name
+          const listingTypeId = (fieldData["listing-type-2"] || "") as string;
+          const listingTypeName = LISTING_TYPES[listingTypeId] || "";
+
+          // Map property type ID to display name
+          const propertyTypeId = (fieldData["property-type"] || "") as string;
+          const propertyTypeName = PROPERTY_TYPES[propertyTypeId] || "";
+
+          // Determine status
+          const status = fieldData.sold ? "Sold" : "Live";
+
+          // Strip HTML from property overview
+          const overview = stripHtml(String(fieldData["property-overview"] || ""));
+
+          // Strip HTML from spaces table
+          const spaces = stripHtml(String(fieldData["spaces-available"] || ""));
+
+          const excelData: ExcelListingData = {
+            name: String(fieldData.name || ""),
+            slug: String(fieldData.slug || ""),
+            address: String(fieldData["full-address"] || ""),
+            cityCounty: String(fieldData["city-county"] || ""),
+            acres: fieldData["square-feet"] != null ? Number(fieldData["square-feet"]) : null,
+            listPrice: String(fieldData["list-price"] || ""),
+            listingType: listingTypeName,
+            propertyType: propertyTypeName,
+            zoning: String(fieldData.zoning || ""),
+            zoningMunicipality: String(fieldData["zoning-municipality"] || ""),
+            propertyOverview: overview,
+            brokerNames,
+            latitude: fieldData.latitude ?? null,
+            longitude: fieldData.longitude ?? null,
+            googleMapsLink: String(fieldData["google-maps-link"] || ""),
+            available: fieldData.available !== false,
+            sold: fieldData.sold === true,
+            featured: fieldData.featured === true,
+            packageUrl: urls.packagePdf || "",
+            status,
+            webflowId: cmsItemId!,
+            buildingSqft: fieldData["building-sqft"] != null
+              ? Number(fieldData["building-sqft"])
+              : null,
+            spacesAvailable: spaces,
+            crossStreets: String(fieldData["cross-streets"] || ""),
+            trafficCount: String(fieldData["traffic-count"] || ""),
+          };
+
+          await syncToExcel(graphToken, driveId, excelData);
+          updateStep(9, "done");
+        }
+      } catch (xlErr) {
+        console.warn("[PublishModal] Excel sync failed:", xlErr);
+        const msg = xlErr instanceof Error && xlErr.message.includes("Lock")
+          ? "File locked — close Excel"
+          : "Failed — non-critical";
+        updateStep(9, "warn", msg);
+      }
+
       setFinished(true);
-      onComplete(cmsItemId);
+      onComplete(cmsItemId!);
     } catch (err) {
       if (abortRef.current) return;
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -393,7 +563,7 @@ export default function PublishModal({
     }
   }, [
     fieldData, itemId, packageAssets, altaFile, sitePlanFile,
-    slug, listingName, existingUrls, updateStep, onComplete,
+    slug, listingName, existingUrls, updateStep, onComplete, getGraphToken,
   ]);
 
   // Auto-start on mount
@@ -448,6 +618,9 @@ export default function PublishModal({
                 {step.status === "error" && (
                   <span className="text-[#CC3333] text-base">&#10005;</span>
                 )}
+                {step.status === "warn" && (
+                  <span className="text-[#B8860B] text-base">&#9888;</span>
+                )}
               </div>
 
               {/* Label + detail */}
@@ -460,9 +633,11 @@ export default function PublishModal({
                         ? "text-[#4A8C1C]"
                         : step.status === "error"
                           ? "text-[#CC3333]"
-                          : step.status === "skipped"
-                            ? "text-[#BBB]"
-                            : "text-[#999]"
+                          : step.status === "warn"
+                            ? "text-[#B8860B]"
+                            : step.status === "skipped"
+                              ? "text-[#BBB]"
+                              : "text-[#999]"
                   }`}
                 >
                   {step.label}
@@ -489,7 +664,6 @@ export default function PublishModal({
           {error && (
             <button
               onClick={() => {
-                // Reset and retry
                 setSteps(initialSteps);
                 setError(null);
                 started.current = false;

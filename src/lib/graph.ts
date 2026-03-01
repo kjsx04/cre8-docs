@@ -58,7 +58,8 @@ export async function uploadToSharePoint(
   driveId: string,
   folderPath: string,
   fileName: string,
-  fileContent: ArrayBuffer
+  fileContent: ArrayBuffer,
+  contentType = "application/octet-stream"
 ): Promise<string> {
   // Encode the full path for the API
   const fullPath = `${folderPath}${fileName}`.replace(/^\//, "");
@@ -70,7 +71,7 @@ export async function uploadToSharePoint(
       method: "PUT",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Type": contentType,
       },
       body: fileContent,
     }
@@ -176,4 +177,205 @@ export async function createFolder(
 
   const data = await response.json();
   return data.webUrl;
+}
+
+/* ============================================================
+   LISTING-SPECIFIC HELPERS
+   ============================================================ */
+
+/**
+ * Create the full SharePoint folder structure for a listing.
+ * Folders: /Listings/Active/{name}/Package/Links/, Maps/Exports/, Photos/, Documents/
+ * Idempotent — handles 409 (already exists) gracefully.
+ */
+export async function createListingFolders(
+  accessToken: string,
+  driveId: string,
+  listingName: string
+): Promise<void> {
+  const base = `Listings/Active/${listingName}`;
+  const subfolders = [
+    "Package",
+    "Package/Links",
+    "Maps",
+    "Maps/Exports",
+    "Photos",
+    "Documents",
+  ];
+
+  // Create base folder first
+  await createFolder(accessToken, driveId, "Listings/Active", listingName);
+
+  // Create subfolders sequentially (parent must exist before child)
+  for (const sub of subfolders) {
+    const parts = sub.split("/");
+    const parentPath = parts.length > 1
+      ? `${base}/${parts.slice(0, -1).join("/")}`
+      : base;
+    const folderName = parts[parts.length - 1];
+    await createFolder(accessToken, driveId, parentPath, folderName);
+  }
+}
+
+/* ============================================================
+   EXCEL SYNC — /Data/CRE8-Listings.xlsx table "Listings"
+   ============================================================ */
+
+/** Column mapping: 31 columns (A through AE), matching the old admin exactly */
+export interface ExcelListingData {
+  name: string;
+  slug: string;
+  address: string;
+  cityCounty: string;
+  acres: number | null;
+  listPrice: string;
+  listingType: string;     // display name, not ID
+  propertyType: string;    // display name, not ID
+  zoning: string;
+  zoningMunicipality: string;
+  propertyOverview: string; // HTML stripped, 500 char max
+  brokerNames: string[];    // up to 6
+  latitude: number | null;
+  longitude: number | null;
+  googleMapsLink: string;
+  available: boolean;
+  sold: boolean;
+  featured: boolean;
+  packageUrl: string;
+  status: string;           // "Live", "Draft", or "Sold"
+  webflowId: string;
+  buildingSqft: number | null;
+  spacesAvailable: string;  // HTML stripped
+  crossStreets: string;
+  trafficCount: string;
+}
+
+/** Build the 31-value row array from ExcelListingData */
+function buildExcelRow(data: ExcelListingData): (string | number | null)[] {
+  // Pad broker names to 6 slots
+  const brokers = [...data.brokerNames];
+  while (brokers.length < 6) brokers.push("");
+
+  return [
+    data.name,                                    // A (0)
+    data.slug,                                    // B (1)
+    data.address,                                 // C (2)
+    data.cityCounty,                              // D (3)
+    data.acres,                                   // E (4)
+    data.listPrice,                               // F (5)
+    data.listingType,                             // G (6)
+    data.propertyType,                            // H (7)
+    data.zoning,                                  // I (8)
+    data.zoningMunicipality,                      // J (9)
+    data.propertyOverview,                        // K (10)
+    brokers[0], brokers[1], brokers[2],           // L-N (11-13)
+    brokers[3], brokers[4], brokers[5],           // O-Q (14-16)
+    data.latitude,                                // R (17)
+    data.longitude,                               // S (18)
+    data.googleMapsLink,                          // T (19)
+    data.available ? "TRUE" : "FALSE",            // U (20)
+    data.sold ? "TRUE" : "FALSE",                 // V (21)
+    data.featured ? "TRUE" : "FALSE",             // W (22)
+    data.packageUrl,                              // X (23)
+    data.status,                                  // Y (24)
+    data.webflowId,                               // Z (25)
+    new Date().toISOString(),                     // AA (26)
+    data.buildingSqft,                            // AB (27)
+    data.spacesAvailable,                         // AC (28)
+    data.crossStreets,                            // AD (29)
+    data.trafficCount,                            // AE (30)
+  ];
+}
+
+const EXCEL_PATH = "Data/CRE8-Listings.xlsx";
+const EXCEL_TABLE = "Listings";
+
+/**
+ * Sync listing data to Excel — find existing row by Webflow ID, update or create.
+ * Retries up to 3 times with 5s delay for lock errors.
+ */
+export async function syncToExcel(
+  accessToken: string,
+  driveId: string,
+  data: ExcelListingData,
+  retries = 3
+): Promise<void> {
+  const encodedPath = encodeURIComponent(EXCEL_PATH).replace(/%2F/g, "/");
+  const tableBase = `${GRAPH_BASE}/drives/${driveId}/root:/${encodedPath}:/workbook/tables/${EXCEL_TABLE}`;
+
+  const row = buildExcelRow(data);
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      // Try to find existing row by Webflow ID (column Z, index 25)
+      const rowsRes = await fetch(`${tableBase}/rows`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!rowsRes.ok) {
+        throw new Error(`Excel rows fetch failed: ${rowsRes.status}`);
+      }
+
+      const rowsData = await rowsRes.json();
+      const existingRows = rowsData.value || [];
+
+      // Search for matching Webflow ID in column Z (index 25)
+      let existingIdx = -1;
+      for (let i = 0; i < existingRows.length; i++) {
+        const vals = existingRows[i].values?.[0];
+        if (vals && vals[25] === data.webflowId) {
+          existingIdx = i;
+          break;
+        }
+      }
+
+      if (existingIdx >= 0) {
+        // Update existing row
+        const patchRes = await fetch(
+          `${tableBase}/rows/itemAt(index=${existingIdx})`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ values: [row] }),
+          }
+        );
+        if (!patchRes.ok) {
+          const text = await patchRes.text();
+          if (text.includes("CannotAcquireLock") && attempt < retries - 1) {
+            await new Promise((r) => setTimeout(r, 5000));
+            continue;
+          }
+          throw new Error(`Excel row update failed: ${patchRes.status}`);
+        }
+      } else {
+        // Create new row
+        const postRes = await fetch(`${tableBase}/rows/add`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ values: [row] }),
+        });
+        if (!postRes.ok) {
+          const text = await postRes.text();
+          if (text.includes("CannotAcquireLock") && attempt < retries - 1) {
+            await new Promise((r) => setTimeout(r, 5000));
+            continue;
+          }
+          throw new Error(`Excel row create failed: ${postRes.status}`);
+        }
+      }
+
+      // Success — break out of retry loop
+      return;
+    } catch (err) {
+      if (attempt === retries - 1) throw err;
+      // Wait before retry
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
 }
