@@ -8,8 +8,8 @@ const CATEGORIES = [
   {
     label: "LOI",
     items: [
-      { slug: "loi-building", name: "Building Purchase" },
       { slug: "loi-land", name: "Land Purchase" },
+      { slug: "loi-building", name: "Building Purchase" },
       { slug: "loi-lease", name: "Lease" },
     ],
   },
