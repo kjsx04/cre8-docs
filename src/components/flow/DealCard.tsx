@@ -1,0 +1,87 @@
+"use client";
+
+import { Deal } from "@/lib/flow/types";
+import {
+  formatCurrency,
+  calcTakeHome,
+  getNextCriticalDate,
+  countdownText,
+  STATUS_LABELS,
+  STATUS_COLORS,
+} from "@/lib/flow/utils";
+
+interface DealCardProps {
+  deal: Deal;
+  brokerId?: string;
+  onClick: () => void;
+}
+
+export default function DealCard({ deal, onClick }: DealCardProps) {
+  // Pass additional_splits so take-home accounts for referral fees etc.
+  const takeHome = calcTakeHome(
+    deal.price,
+    deal.commission_rate,
+    deal.broker_split,
+    deal.additional_splits || []
+  );
+  const nextDate = getNextCriticalDate(deal);
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left bg-white border border-border-light rounded-card p-4
+                 hover:border-green/40 transition-colors duration-200"
+    >
+      {/* Top row — name + status badge */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <h3 className="font-dm font-semibold text-charcoal truncate">{deal.deal_name}</h3>
+          {deal.property_address && (
+            <p className="text-xs text-muted-gray truncate mt-0.5">{deal.property_address}</p>
+          )}
+        </div>
+        <span className={`text-xs font-medium px-2 py-0.5 rounded border flex-shrink-0 ${STATUS_COLORS[deal.status]}`}>
+          {STATUS_LABELS[deal.status]}
+        </span>
+      </div>
+
+      {/* Middle — price + take-home */}
+      <div className="flex items-baseline gap-4 mb-3">
+        <div>
+          <span className="text-xs text-muted-gray block">Price</span>
+          <span className="text-sm font-medium">{formatCurrency(deal.price)}</span>
+        </div>
+        <div>
+          <span className="text-xs text-muted-gray block">Take-Home</span>
+          <span className="text-sm font-bold text-green">{formatCurrency(takeHome)}</span>
+        </div>
+        <div>
+          <span className="text-xs text-muted-gray block">Type</span>
+          <span className="text-sm font-medium capitalize">{deal.deal_type}</span>
+        </div>
+      </div>
+
+      {/* Bottom — next critical date countdown */}
+      {nextDate && deal.status !== "closed" && deal.status !== "cancelled" && (
+        <div className="flex items-center gap-2 pt-3 border-t border-border-light">
+          {/* Urgency dot */}
+          <div className={`w-2 h-2 rounded-full flex-shrink-0
+            ${nextDate.urgency === "red" ? "bg-red-500" :
+              nextDate.urgency === "yellow" ? "bg-amber-500" :
+              nextDate.urgency === "gray" ? "bg-border-medium" :
+              "bg-green"}`}
+          />
+          <span className="text-xs text-medium-gray">{nextDate.label}</span>
+          <span className={`text-xs font-medium ml-auto
+            ${nextDate.urgency === "red" ? "text-red-600" :
+              nextDate.urgency === "yellow" ? "text-amber-600" :
+              nextDate.urgency === "gray" ? "text-muted-gray" :
+              "text-green"}`}
+          >
+            {countdownText(nextDate.daysAway)}
+          </span>
+        </div>
+      )}
+    </button>
+  );
+}
