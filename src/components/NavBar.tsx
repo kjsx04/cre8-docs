@@ -8,6 +8,7 @@ import Link from "next/link";
 const NAV_ITEMS = [
   { label: "Listings", href: "/" },
   { label: "Docs", href: "/docs" },
+  { label: "Flow", href: "/flow" },
 ];
 
 export default function NavBar() {
