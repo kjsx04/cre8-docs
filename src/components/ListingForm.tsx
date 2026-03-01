@@ -14,6 +14,9 @@ import {
 } from "@/lib/admin-constants";
 import RichTextEditor from "@/components/RichTextEditor";
 import SpacesTable from "@/components/SpacesTable";
+import PackageUploader, { PackageAssets, GalleryImage } from "@/components/PackageUploader";
+import FileUploadZone from "@/components/FileUploadZone";
+import PhotoUploader from "@/components/PhotoUploader";
 
 // Dynamic import — Mapbox uses window/document, can't render server-side
 const ListingMapPicker = dynamic(
@@ -274,6 +277,46 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
   // Duplicate detection
   const [dupeNameWarn, setDupeNameWarn] = useState("");
   const [dupeSlugWarn, setDupeSlugWarn] = useState("");
+
+  // ---- Asset state (Phase 4) ----
+  const [packageAssets, setPackageAssets] = useState<PackageAssets>(() => {
+    // In edit mode, load existing gallery images
+    if (item?.fieldData) {
+      const fd = item.fieldData;
+      const existing: GalleryImage[] = [];
+      // Floorplan (marketing pic) comes first
+      if (fd.floorplan?.url) {
+        existing.push({
+          url: fd.floorplan.url,
+          blob: null,
+          name: "Marketing Image",
+          isExisting: true,
+        });
+      }
+      // Then gallery images
+      if (fd.gallery) {
+        for (const g of fd.gallery) {
+          if (g.url) {
+            existing.push({
+              url: g.url,
+              blob: null,
+              name: g.alt || "Gallery Image",
+              isExisting: true,
+            });
+          }
+        }
+      }
+      return {
+        packageFile: null,
+        galleryImages: existing,
+        marketingIdx: 0,
+      };
+    }
+    return { packageFile: null, galleryImages: [], marketingIdx: 0 };
+  });
+
+  const [altaFile, setAltaFile] = useState<File | null>(null);
+  const [sitePlanFile, setSitePlanFile] = useState<File | null>(null);
 
   // ---- Build CMS payload from form fields ----
   const buildPayload = useCallback((): ListingFieldData => {
@@ -643,6 +686,67 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
               Mapbox token not configured — map unavailable.
             </p>
           )}
+        </div>
+      </div>
+
+      {/* ---- Package & Assets ---- */}
+      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white overflow-hidden">
+        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
+          <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
+            Package & Assets
+          </h2>
+        </div>
+        <div className="px-5 py-4 space-y-6">
+          {/* Marketing Package PDF */}
+          <div>
+            <label className="block text-xs font-semibold text-[#666] uppercase tracking-wider mb-1.5">
+              Marketing Package PDF
+            </label>
+            <PackageUploader
+              assets={packageAssets}
+              onChange={(newAssets) => {
+                setPackageAssets(newAssets);
+                scheduleAutoSave();
+              }}
+              existingPackageUrl={item?.fieldData?.["package-2"] || undefined}
+            />
+          </div>
+
+          {/* Alta Survey + Site Plan — side by side */}
+          <div className="grid grid-cols-2 gap-4">
+            <FileUploadZone
+              label="Alta Survey"
+              file={altaFile}
+              onFileSelect={(f) => {
+                setAltaFile(f);
+                scheduleAutoSave();
+              }}
+              existingUrl={item?.fieldData?.["alta-survey-2"] || undefined}
+            />
+            <FileUploadZone
+              label="Site Plan"
+              file={sitePlanFile}
+              onFileSelect={(f) => {
+                setSitePlanFile(f);
+                scheduleAutoSave();
+              }}
+              existingUrl={item?.fieldData?.["site-plan-2"] || undefined}
+            />
+          </div>
+
+          {/* Additional Photos */}
+          <PhotoUploader
+            galleryImages={packageAssets.galleryImages}
+            marketingIdx={packageAssets.marketingIdx}
+            onChange={(images, marketingIdx) => {
+              setPackageAssets((prev) => ({
+                ...prev,
+                galleryImages: images,
+                marketingIdx,
+              }));
+              scheduleAutoSave();
+            }}
+          />
         </div>
       </div>
     </div>
