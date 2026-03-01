@@ -13,6 +13,7 @@ import {
   slugify,
 } from "@/lib/admin-constants";
 import RichTextEditor from "@/components/RichTextEditor";
+import SpacesTable from "@/components/SpacesTable";
 
 // Dynamic import — Mapbox uses window/document, can't render server-side
 const ListingMapPicker = dynamic(
@@ -221,6 +222,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
         longitude: fd.longitude ?? null,
         "google-maps-link": fd["google-maps-link"] || "",
         "property-overview": fd["property-overview"] || "",
+        "spaces-available": fd["spaces-available"] || "",
         available: fd.available !== false, // default ON
         sold: fd.sold || false,
         featured: fd.featured || false,
@@ -247,6 +249,7 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
       longitude: null,
       "google-maps-link": "",
       "property-overview": "",
+      "spaces-available": "",
       available: true,
       sold: false,
       featured: false,
@@ -308,6 +311,10 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
     // Rich text
     const overview = String(fields["property-overview"] || "").trim();
     if (overview) fd["property-overview"] = overview;
+
+    // Spaces table (HTML)
+    const spaces = String(fields["spaces-available"] || "").trim();
+    if (spaces) fd["spaces-available"] = spaces;
 
     // Toggles
     fd.available = fields.available as boolean;
@@ -589,6 +596,21 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
             value={String(fields["property-overview"] || "")}
             onChange={(html) => updateField("property-overview", html)}
             placeholder="Enter property overview..."
+          />
+        </div>
+      </div>
+
+      {/* ---- Available Spaces ---- */}
+      <div className="mb-6 border border-[#E5E5E5] rounded-card bg-white overflow-hidden">
+        <div className="px-5 py-3 border-b border-[#F0F0F0] bg-[#FAFAFA]">
+          <h2 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wider">
+            Available Spaces
+          </h2>
+        </div>
+        <div className="px-5 py-4">
+          <SpacesTable
+            value={String(fields["spaces-available"] || "")}
+            onChange={(html) => updateField("spaces-available", html)}
           />
         </div>
       </div>
