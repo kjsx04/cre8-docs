@@ -17,6 +17,7 @@ import SpacesTable from "@/components/SpacesTable";
 import PackageUploader, { PackageAssets, GalleryImage } from "@/components/PackageUploader";
 import FileUploadZone from "@/components/FileUploadZone";
 import PhotoUploader from "@/components/PhotoUploader";
+import PublishModal from "@/components/PublishModal";
 
 // Dynamic import — Mapbox uses window/document, can't render server-side
 const ListingMapPicker = dynamic(
@@ -318,6 +319,9 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
   const [altaFile, setAltaFile] = useState<File | null>(null);
   const [sitePlanFile, setSitePlanFile] = useState<File | null>(null);
 
+  // ---- Publish modal state ----
+  const [showPublishModal, setShowPublishModal] = useState(false);
+
   // ---- Build CMS payload from form fields ----
   const buildPayload = useCallback((): ListingFieldData => {
     const fd: Record<string, unknown> = {};
@@ -595,15 +599,32 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
           )}
         </div>
 
-        {/* Save Draft button */}
-        <button
-          onClick={handleSaveDraft}
-          disabled={isSaving.current}
-          className="bg-[#1a1a1a] text-white font-semibold px-5 py-2 rounded-btn text-sm
-                     hover:bg-[#333] transition-colors disabled:opacity-50"
-        >
-          Save Draft
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Save Draft button */}
+          <button
+            onClick={handleSaveDraft}
+            disabled={isSaving.current}
+            className="bg-[#1a1a1a] text-white font-semibold px-5 py-2 rounded-btn text-sm
+                       hover:bg-[#333] transition-colors disabled:opacity-50"
+          >
+            Save Draft
+          </button>
+
+          {/* Publish button */}
+          <button
+            onClick={() => {
+              // Mark all required as touched so validation shows
+              setTouched(new Set(REQUIRED_KEYS));
+              if (!allRequiredFilled()) return;
+              if (dupeNameWarn || dupeSlugWarn) return;
+              setShowPublishModal(true);
+            }}
+            className="bg-[#8CC644] text-white font-semibold px-5 py-2 rounded-btn text-sm
+                       hover:bg-[#7AB800] transition-colors"
+          >
+            Publish
+          </button>
+        </div>
       </div>
 
       {/* ---- Sections ---- */}
@@ -749,6 +770,34 @@ export default function ListingForm({ item, allItems }: ListingFormProps) {
           />
         </div>
       </div>
+
+      {/* ---- Publish Modal ---- */}
+      {showPublishModal && (
+        <PublishModal
+          fieldData={buildPayload()}
+          itemId={draftId}
+          packageAssets={packageAssets}
+          altaFile={altaFile}
+          sitePlanFile={sitePlanFile}
+          slug={String(fields.slug || "")}
+          listingName={String(fields.name || "")}
+          existingUrls={{
+            package: item?.fieldData?.["package-2"] || undefined,
+            alta: item?.fieldData?.["alta-survey-2"] || undefined,
+            sitePlan: item?.fieldData?.["site-plan-2"] || undefined,
+            floorplan: item?.fieldData?.floorplan?.url || undefined,
+            gallery: item?.fieldData?.gallery?.map((g: { url: string }) => g.url) || undefined,
+          }}
+          onComplete={(newId) => {
+            // Update draft ID if this was a new listing
+            if (!draftId) {
+              setDraftId(newId);
+              window.history.replaceState(null, "", `/listings/${newId}/edit`);
+            }
+          }}
+          onClose={() => setShowPublishModal(false)}
+        />
+      )}
     </div>
   );
 
