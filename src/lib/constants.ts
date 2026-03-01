@@ -45,10 +45,10 @@ export const DOC_TYPES: DocType[] = [
   },
   {
     id: "listing_lease",
-    name: "Listing Agreement — Lease",
+    name: "Listing Agreement — Sale/Lease",
     slug: "listing-lease",
     mode: "strict",
-    description: "Exclusive listing agreement for property lease",
+    description: "Exclusive listing agreement for property sale, exchange, or lease",
     templateFile: "lease-listing-agreement-tokenized.docx",
     sharePointFolder: "/CRE8 Advisors/Documents/ListingAgreements/Lease/",
     enabled: true,
