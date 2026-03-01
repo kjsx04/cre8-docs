@@ -909,7 +909,7 @@ export default function DealForm({ deal, onSave, onCancel, saving, mapboxToken, 
                       value={brokerSearch}
                       onChange={(e) => setBrokerSearch(e.target.value)}
                       placeholder="Search brokers..."
-                      className="w-full border-b border-border-light px-3 py-2 text-sm"
+                      className="w-full border-b border-border-light px-3 py-2 text-sm text-charcoal"
                       autoFocus
                     />
                     <div className="max-h-36 overflow-y-auto">
