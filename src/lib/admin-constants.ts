@@ -163,3 +163,14 @@ export function cityShort(cityCounty?: string): string {
   if (!cityCounty) return "\u2014";
   return cityCounty.split(",")[0].trim();
 }
+
+// ---- Helper: generate URL slug from listing name ----
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "") // strip special chars
+    .replace(/\s+/g, "-")          // spaces → dashes
+    .replace(/-+/g, "-")           // collapse multiple dashes
+    .replace(/^-|-$/g, "");        // trim leading/trailing dashes
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import {
   ListingItem,
@@ -23,6 +24,8 @@ type StatusTab = (typeof STATUS_TABS)[number];
    MAIN DASHBOARD COMPONENT
    ============================================================ */
 export default function DashboardPage() {
+  const router = useRouter();
+
   // Listings data
   const [items, setItems] = useState<ListingItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,7 +170,10 @@ export default function DashboardPage() {
     return "bg-[#FFEAEA] text-[#CC3333]"; // Sold
   };
 
-  // ---- Row click — no-op for now (will open edit form in Phase 2) ----
+  // ---- Row click — open listing edit form ----
+  const handleRowClick = (item: ListingItem) => {
+    router.push(`/listings/${item.id}/edit`);
+  };
 
   return (
     <AppShell>
@@ -343,10 +349,9 @@ export default function DashboardPage() {
 
           {/* + New Listing button */}
           <button
-            disabled
-            title="Coming soon"
+            onClick={() => router.push("/listings/new")}
             className="bg-green text-black font-semibold px-4 py-1.5 rounded-btn text-sm
-                       opacity-50 cursor-not-allowed"
+                       hover:brightness-110 transition-all"
           >
             + New Listing
           </button>
@@ -413,8 +418,9 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={item.id}
+                    onClick={() => handleRowClick(item)}
                     className="grid gap-0 px-5 py-[11px] items-center border-b border-[#F0F0F0] last:border-b-0
-                               text-[13px] text-[#333] hover:bg-[#F8F8F8] transition-colors relative group"
+                               text-[13px] text-[#333] hover:bg-[#F8F8F8] transition-colors relative group cursor-pointer"
                     style={{
                       gridTemplateColumns:
                         "2fr 1fr 1.2fr 1.5fr 1fr 0.6fr 0.7fr 0.8fr",
