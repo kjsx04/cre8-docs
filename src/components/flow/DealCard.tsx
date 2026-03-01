@@ -14,9 +14,13 @@ interface DealCardProps {
   deal: Deal;
   brokerId?: string;
   onClick: () => void;
+  // Optional drag-and-drop props (used by Kanban board, ignored in list view)
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
 }
 
-export default function DealCard({ deal, onClick }: DealCardProps) {
+export default function DealCard({ deal, onClick, draggable, onDragStart, onDragEnd }: DealCardProps) {
   // Pass additional_splits so take-home accounts for referral fees etc.
   const takeHome = calcTakeHome(
     deal.price,
@@ -29,8 +33,12 @@ export default function DealCard({ deal, onClick }: DealCardProps) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-white border border-border-light rounded-card p-4
-                 hover:border-green/40 transition-colors duration-200"
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      className={`w-full text-left bg-white border border-border-light rounded-card p-4
+                 hover:border-green/40 transition-colors duration-200
+                 ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       {/* Top row — name + status badge */}
       <div className="flex items-start justify-between gap-3 mb-3">

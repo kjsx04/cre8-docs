@@ -1,4 +1,4 @@
-import { Deal, CriticalDate, AdditionalSplit, DealMember } from "./types";
+import { Deal, CriticalDate, AdditionalSplit, DealMember, DealStatus, DealDate } from "./types";
 
 // ── Date helpers ──
 
@@ -190,6 +190,106 @@ export function countdownText(daysAway: number): string {
   if (daysAway === -1) return "1 day ago";
   if (daysAway < 0) return `${Math.abs(daysAway)} days ago`;
   return `${daysAway} days`;
+}
+
+// ── Kanban board helpers ──
+
+/** The three columns on the Kanban board */
+export type KanbanColumn = "pre_escrow" | "due_diligence" | "closing";
+
+/** Column display config */
+export const KANBAN_COLUMNS: { key: KanbanColumn; label: string; description: string }[] = [
+  { key: "pre_escrow", label: "Pre-Escrow", description: "No effective date set yet" },
+  { key: "due_diligence", label: "Due Diligence", description: "Effective date set, DD period active" },
+  { key: "closing", label: "Closing", description: "Past due diligence, money is hard" },
+];
+
+/** Map a deal to its Kanban column based on status */
+export function getKanbanColumn(deal: Deal): KanbanColumn {
+  if (deal.status === "closing") return "closing";
+  if (deal.status === "due_diligence") return "due_diligence";
+  // "active" deals go to pre_escrow unless they have an effective_date
+  if (deal.effective_date) return "due_diligence";
+  return "pre_escrow";
+}
+
+/** Check if a deal_date label is an extension (case-insensitive) */
+export function isExtensionDate(label: string): boolean {
+  return label.toLowerCase().includes("extension");
+}
+
+/** Result from checking whether a deal should auto-advance */
+export type AdvancementResult =
+  | { action: "advance"; newStatus: DealStatus }
+  | { action: "prompt_extension"; datePassed: DealDate }
+  | null;
+
+/**
+ * Check if a deal should auto-advance based on dates.
+ * - active → due_diligence: if effective_date is today or past
+ * - due_diligence → closing: if earliest non-extension deal_date has passed
+ *   (extension dates trigger a prompt instead of silent advance)
+ */
+export function checkStatusAdvancement(deal: Deal): AdvancementResult {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Active → Due Diligence: effective_date is today or past
+  if (deal.status === "active" && deal.effective_date) {
+    const effDate = new Date(deal.effective_date + "T00:00:00");
+    if (effDate <= today) {
+      return { action: "advance", newStatus: "due_diligence" };
+    }
+  }
+
+  // Due Diligence → Closing: check deal_dates
+  if (deal.status === "due_diligence" && deal.deal_dates && deal.deal_dates.length > 0) {
+    // Sort deal_dates by date ascending
+    const sorted = [...deal.deal_dates].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    // Check each date from earliest to latest
+    for (const dd of sorted) {
+      const ddDate = new Date(dd.date + "T00:00:00");
+      if (ddDate > today) break; // all remaining dates are future — stop
+
+      // This date has passed
+      if (isExtensionDate(dd.label)) {
+        // Extension date passed — needs user prompt before moving
+        return { action: "prompt_extension", datePassed: dd };
+      } else {
+        // Regular date passed — auto-move to closing
+        return { action: "advance", newStatus: "closing" };
+      }
+    }
+  }
+
+  return null;
+}
+
+/** Get the highlight config for a drop target column */
+export function getDropHighlightConfig(column: KanbanColumn): {
+  fields: string[];
+  banner: string;
+} {
+  switch (column) {
+    case "pre_escrow":
+      return {
+        fields: ["effective_date"],
+        banner: "Clear or update the Effective Date",
+      };
+    case "due_diligence":
+      return {
+        fields: ["effective_date", "escrow_open_date"],
+        banner: "Set the Effective Date and Escrow Open Date",
+      };
+    case "closing":
+      return {
+        fields: ["deal_dates_section"],
+        banner: "Verify that due diligence dates have passed",
+      };
+  }
 }
 
 // ── Status display helpers ──

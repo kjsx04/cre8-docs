@@ -56,6 +56,9 @@ interface DealFormProps {
   userEmail?: string;         // for saving broker defaults
   brokerId?: string;          // logged-in broker's UUID
   allBrokers?: Pick<Broker, "id" | "name" | "email">[];  // all CRE8 brokers for picker
+  // Kanban drop highlight — amber ring on fields that need attention after a drag-drop
+  initialHighlightFields?: string[];
+  contextBanner?: string;     // amber banner message below the form title
 }
 
 // Empty form defaults
@@ -217,7 +220,7 @@ function ListingSearch({
 
 // ── Main DealForm component ──
 
-export default function DealForm({ deal, onSave, onCancel, saving, mapboxToken, brokerDefaults, userEmail, brokerId, allBrokers }: DealFormProps) {
+export default function DealForm({ deal, onSave, onCancel, saving, mapboxToken, brokerDefaults, userEmail, brokerId, allBrokers, initialHighlightFields, contextBanner }: DealFormProps) {
   const [form, setForm] = useState<DealFormData>(emptyForm);
   const isEditing = !!deal;
 
@@ -247,6 +250,11 @@ export default function DealForm({ deal, onSave, onCancel, saving, mapboxToken, 
   // ── Track which fields were auto-filled (for green highlight) ──
   const [highlightedFields, setHighlightedFields] = useState<Set<string>>(new Set());
   const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ── Amber highlight for Kanban drop context (persists until user edits the field) ──
+  const [amberFields, setAmberFields] = useState<Set<string>>(
+    new Set(initialHighlightFields || [])
+  );
 
   // If editing, populate form from existing deal
   useEffect(() => {
@@ -359,6 +367,10 @@ export default function DealForm({ deal, onSave, onCancel, saving, mapboxToken, 
 
   const update = (field: keyof DealFormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    // Clear amber highlight when user edits the field
+    if (amberFields.has(field)) {
+      setAmberFields((prev) => { const next = new Set(prev); next.delete(field); return next; });
+    }
   };
 
   // ── Highlight auto-filled fields briefly ──
@@ -693,11 +705,13 @@ export default function DealForm({ deal, onSave, onCancel, saving, mapboxToken, 
     onSave(formData, apiDates as DealDate[]);
   };
 
-  // Shared input classes — with optional green highlight for auto-filled fields
+  // Shared input classes — green highlight for AI auto-fill, amber for Kanban drop context
   const inputCls = (field?: string) =>
     `w-full border rounded-btn px-3 py-2 text-sm text-charcoal bg-white transition-all duration-500 ${
       field && highlightedFields.has(field)
         ? "border-green ring-1 ring-green/30 bg-green/5"
+        : field && amberFields.has(field)
+        ? "border-amber-400 ring-1 ring-amber-300/50 bg-amber-50"
         : "border-border-light"
     }`;
   const labelCls = "block text-sm font-medium text-charcoal mb-1";
@@ -712,9 +726,19 @@ export default function DealForm({ deal, onSave, onCancel, saving, mapboxToken, 
         onSubmit={handleSubmit}
         className="relative bg-white rounded-card border border-border-light p-6 w-full max-w-2xl mx-4 my-8"
       >
-        <h2 className="font-bebas text-2xl tracking-wide text-charcoal mb-6">
+        <h2 className="font-bebas text-2xl tracking-wide text-charcoal mb-4">
           {isEditing ? "Edit Deal" : "New Deal"}
         </h2>
+
+        {/* ── Amber context banner (shown after Kanban drag-drop) ── */}
+        {contextBanner && (
+          <div className="mb-6 p-3 rounded-btn border border-amber-300 bg-amber-50 text-sm text-amber-800 flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            {contextBanner}
+          </div>
+        )}
 
         {/* ── File Drop Zone (new deals only) ── */}
         {!isEditing && (
@@ -1028,7 +1052,9 @@ export default function DealForm({ deal, onSave, onCancel, saving, mapboxToken, 
         </div>
 
         {/* ── Critical Dates ── */}
-        <div className="border-t border-border-light pt-4 mb-6">
+        <div className={`border-t border-border-light pt-4 mb-6 rounded-btn transition-all duration-300 ${
+          amberFields.has("deal_dates_section") ? "ring-1 ring-amber-300/50 bg-amber-50/50 p-4 -mx-2" : ""
+        }`}>
           <h3 className="font-dm font-semibold text-sm text-charcoal mb-3">Critical Dates</h3>
 
           {/* Fixed fields: Effective Date + Escrow Open */}

@@ -1,18 +1,23 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useMsal } from "@azure/msal-react";
 import DealCard from "@/components/flow/DealCard";
 import DealDetail from "@/components/flow/DealDetail";
 import DealForm from "@/components/flow/DealForm";
+import DealBoard from "@/components/flow/DealBoard";
 import { Deal, DealFormData, DealStatus, BrokerDefaults, DealDate, Broker } from "@/lib/flow/types";
 import {
   formatCurrency,
+  formatDate,
   calcCommission,
   calcMemberTakeHome,
   getMemberSplit,
   getNextCriticalDate,
   countdownText,
+  checkStatusAdvancement,
+  getDropHighlightConfig,
+  KanbanColumn,
 } from "@/lib/flow/utils";
 
 // Tab options for filtering deals
@@ -21,6 +26,13 @@ const TABS: { label: string; statuses: DealStatus[] }[] = [
   { label: "Closed", statuses: ["closed"] },
   { label: "Cancelled", statuses: ["cancelled"] },
 ];
+
+// Map target kanban column to the status that should be set on the deal
+const COLUMN_TO_STATUS: Record<KanbanColumn, DealStatus> = {
+  pre_escrow: "active",
+  due_diligence: "due_diligence",
+  closing: "closing",
+};
 
 export default function FlowPage() {
   const { accounts } = useMsal();
@@ -36,6 +48,37 @@ export default function FlowPage() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // ── View toggle: board (default) vs list — persisted in localStorage ──
+  const [viewMode, setViewMode] = useState<"board" | "list">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("flow_view_mode") as "board" | "list") || "board";
+    }
+    return "board";
+  });
+
+  // ── Kanban drag-drop state ──
+  // When a deal is dropped on a new column, we optimistically move it and open the edit form
+  const [dropEditDeal, setDropEditDeal] = useState<Deal | null>(null);
+  const [dropTargetColumn, setDropTargetColumn] = useState<KanbanColumn | null>(null);
+
+  // ── Auto-move notifications (deals that silently advanced) ──
+  const [autoMoveNotices, setAutoMoveNotices] = useState<{ dealName: string; from: string; to: string }[]>([]);
+
+  // ── Extension prompt modal state ──
+  const [extensionPrompt, setExtensionPrompt] = useState<{
+    deal: Deal;
+    dateLabel: string;
+    dateValue: string;
+  } | null>(null);
+
+  // Track whether auto-move has run for this data load
+  const autoMoveRanRef = useRef(false);
+
+  // Persist view mode
+  useEffect(() => {
+    localStorage.setItem("flow_view_mode", viewMode);
+  }, [viewMode]);
 
   // Fetch deals + broker defaults from API
   const fetchDeals = useCallback(async () => {
@@ -55,6 +98,8 @@ export default function FlowPage() {
       setBrokerId(data.broker_id || "");
       setAllBrokers(data.all_brokers || []);
       setError(null);
+      // Reset auto-move flag so reconciliation runs on fresh data
+      autoMoveRanRef.current = false;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load deals");
     } finally {
@@ -65,6 +110,74 @@ export default function FlowPage() {
   useEffect(() => {
     fetchDeals();
   }, [fetchDeals]);
+
+  // ── Auto-move reconciliation — runs once after deals load ──
+  useEffect(() => {
+    if (loading || autoMoveRanRef.current || deals.length === 0) return;
+    autoMoveRanRef.current = true;
+
+    const runAutoMoves = async () => {
+      const notices: { dealName: string; from: string; to: string }[] = [];
+      const extensionPrompts: { deal: Deal; dateLabel: string; dateValue: string }[] = [];
+
+      // Check each active deal for status advancement
+      const activeDeals = deals.filter((d) => ["active", "due_diligence"].includes(d.status));
+
+      for (const deal of activeDeals) {
+        const result = checkStatusAdvancement(deal);
+        if (!result) continue;
+
+        if (result.action === "advance") {
+          // Silent auto-advance — fire PATCH and collect notice
+          try {
+            await fetch(`/api/flow/deals/${deal.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: result.newStatus }),
+            });
+            const statusLabels: Record<string, string> = {
+              active: "Pre-Escrow",
+              due_diligence: "Due Diligence",
+              closing: "Closing",
+            };
+            notices.push({
+              dealName: deal.deal_name,
+              from: statusLabels[deal.status] || deal.status,
+              to: statusLabels[result.newStatus] || result.newStatus,
+            });
+          } catch (e) {
+            console.error(`Auto-move failed for ${deal.deal_name}:`, e);
+          }
+        } else if (result.action === "prompt_extension") {
+          // Extension date reached — queue prompt (don't auto-move)
+          extensionPrompts.push({
+            deal,
+            dateLabel: result.datePassed.label,
+            dateValue: result.datePassed.date,
+          });
+        }
+      }
+
+      // Show notices for silent moves
+      if (notices.length > 0) {
+        setAutoMoveNotices(notices);
+        // Auto-dismiss after 6 seconds
+        setTimeout(() => setAutoMoveNotices([]), 6000);
+      }
+
+      // Show first extension prompt (one at a time)
+      if (extensionPrompts.length > 0) {
+        setExtensionPrompt(extensionPrompts[0]);
+      }
+
+      // Re-fetch to get updated statuses
+      if (notices.length > 0) {
+        await fetchDeals();
+      }
+    };
+
+    runAutoMoves();
+  }, [loading, deals, fetchDeals]);
 
   // Create a new deal (includes deal_dates as a separate array)
   const handleCreate = async (data: DealFormData, dealDates?: DealDate[]) => {
@@ -115,6 +228,82 @@ export default function FlowPage() {
     }
   };
 
+  // ── Kanban drag-drop handler ──
+  const handleBoardDrop = (deal: Deal, targetColumn: KanbanColumn) => {
+    // Optimistically update the deal's status in local state
+    const newStatus = COLUMN_TO_STATUS[targetColumn];
+    setDeals((prev) =>
+      prev.map((d) => (d.id === deal.id ? { ...d, status: newStatus } : d))
+    );
+    // Open the edit form with highlight config for the target column
+    setDropEditDeal({ ...deal, status: newStatus });
+    setDropTargetColumn(targetColumn);
+  };
+
+  // Save from the drop-triggered edit form — persist status + field changes
+  const handleDropSave = async (data: DealFormData, dealDates?: DealDate[]) => {
+    if (!dropEditDeal) return;
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        ...data,
+        status: dropEditDeal.status, // include the new status from the drop
+      };
+      if (dealDates !== undefined) {
+        payload.deal_dates = dealDates;
+      }
+      const res = await fetch(`/api/flow/deals/${dropEditDeal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to update deal");
+      setDropEditDeal(null);
+      setDropTargetColumn(null);
+      await fetchDeals();
+    } catch (e) {
+      console.error("Drop save failed:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Cancel the drop — revert optimistic move by re-fetching
+  const handleDropCancel = async () => {
+    setDropEditDeal(null);
+    setDropTargetColumn(null);
+    await fetchDeals();
+  };
+
+  // ── Extension prompt handlers ──
+
+  // "Yes — Extension Filed" → stay in DD, open edit form to update dates
+  const handleExtensionFiled = () => {
+    if (!extensionPrompt) return;
+    const deal = extensionPrompt.deal;
+    setExtensionPrompt(null);
+    // Open edit form targeting the dates section so user can update extension dates
+    setDropEditDeal(deal);
+    setDropTargetColumn("due_diligence");
+  };
+
+  // "No — Move to Closing" → auto-move to closing
+  const handleExtensionDecline = async () => {
+    if (!extensionPrompt) return;
+    const deal = extensionPrompt.deal;
+    setExtensionPrompt(null);
+    try {
+      await fetch(`/api/flow/deals/${deal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "closing" }),
+      });
+      await fetchDeals();
+    } catch (e) {
+      console.error("Extension decline failed:", e);
+    }
+  };
+
   // Filter deals by active tab
   const filteredDeals = deals.filter((d) => TABS[activeTab].statuses.includes(d.status));
 
@@ -148,6 +337,9 @@ export default function FlowPage() {
     .filter((x) => x.next && !x.next.isPast)
     .sort((a, b) => a.next!.daysAway - b.next!.daysAway)[0];
 
+  // Get drop highlight config for the edit form opened after a drag-drop
+  const dropHighlight = dropTargetColumn ? getDropHighlightConfig(dropTargetColumn) : null;
+
   return (
     <div className="px-6 py-6 max-w-6xl mx-auto">
       {/* Summary bar */}
@@ -157,6 +349,25 @@ export default function FlowPage() {
         <SummaryCard label="Total Commission" value={formatCurrency(totalCommission)} />
         <SummaryCard label="Total Take-Home" value={formatCurrency(totalTakeHome)} accent />
       </div>
+
+      {/* Auto-move notification bar */}
+      {autoMoveNotices.length > 0 && (
+        <div className="mb-4 p-3 rounded-btn border border-blue-200 bg-blue-50 text-sm text-blue-800">
+          <div className="flex items-center gap-2 mb-1">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <span className="font-medium">Deals auto-updated based on dates:</span>
+          </div>
+          <ul className="ml-6 space-y-0.5">
+            {autoMoveNotices.map((n, i) => (
+              <li key={i} className="text-xs">
+                <strong>{n.dealName}</strong> moved from {n.from} to {n.to}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Urgent date alert */}
       {urgentDate && urgentDate.next && urgentDate.next.urgency !== "green" && urgentDate.next.urgency !== "gray" && (
@@ -175,25 +386,67 @@ export default function FlowPage() {
         </div>
       )}
 
-      {/* Tab bar + New Deal button */}
+      {/* Tab bar + View toggle + New Deal button */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-1">
-          {TABS.map((tab, i) => {
-            const count = deals.filter((d) => tab.statuses.includes(d.status)).length;
-            return (
+        <div className="flex items-center gap-3">
+          {/* Tabs */}
+          <div className="flex gap-1">
+            {TABS.map((tab, i) => {
+              const count = deals.filter((d) => tab.statuses.includes(d.status)).length;
+              return (
+                <button
+                  key={tab.label}
+                  onClick={() => setActiveTab(i)}
+                  className={`px-4 py-2 text-sm font-medium rounded-btn transition-colors duration-200
+                    ${activeTab === i
+                      ? "bg-green text-white"
+                      : "text-medium-gray hover:text-charcoal hover:bg-light-gray"}`}
+                >
+                  {tab.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          {/* View toggle — only visible on Active tab */}
+          {activeTab === 0 && (
+            <div className="flex border border-border-light rounded-btn overflow-hidden">
+              {/* Board view icon */}
               <button
-                key={tab.label}
-                onClick={() => setActiveTab(i)}
-                className={`px-4 py-2 text-sm font-medium rounded-btn transition-colors duration-200
-                  ${activeTab === i
+                onClick={() => setViewMode("board")}
+                className={`p-1.5 transition-colors duration-200 ${
+                  viewMode === "board"
                     ? "bg-green text-white"
-                    : "text-medium-gray hover:text-charcoal hover:bg-light-gray"}`}
+                    : "text-medium-gray hover:text-charcoal bg-white"
+                }`}
+                title="Board view"
               >
-                {tab.label} ({count})
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="5" height="18" rx="1" />
+                  <rect x="10" y="3" width="5" height="12" rx="1" />
+                  <rect x="17" y="3" width="5" height="15" rx="1" />
+                </svg>
               </button>
-            );
-          })}
+              {/* List view icon */}
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 transition-colors duration-200 ${
+                  viewMode === "list"
+                    ? "bg-green text-white"
+                    : "text-medium-gray hover:text-charcoal bg-white"
+                }`}
+                title="List view"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="4" rx="1" />
+                  <rect x="3" y="10" width="18" height="4" rx="1" />
+                  <rect x="3" y="17" width="18" height="4" rx="1" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
+
         <button
           onClick={() => setShowNewForm(true)}
           className="px-4 py-2 text-sm font-semibold bg-green text-white rounded-btn
@@ -206,7 +459,7 @@ export default function FlowPage() {
         </button>
       </div>
 
-      {/* Deal cards */}
+      {/* Deal content area */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <div className="w-8 h-8 border-2 border-green border-t-transparent rounded-full animate-spin" />
@@ -216,13 +469,31 @@ export default function FlowPage() {
           <p className="text-red-600 text-sm mb-2">{error}</p>
           <button onClick={fetchDeals} className="text-sm text-green hover:underline">Retry</button>
         </div>
+      ) : activeTab === 0 && viewMode === "board" ? (
+        /* ── Kanban Board View (Active tab only) ── */
+        activeDeals.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-muted-gray text-sm">No active deals. Create one to get started.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <DealBoard
+              deals={activeDeals}
+              brokerId={brokerId}
+              onCardClick={(deal) => setSelectedDeal(deal)}
+              onDrop={handleBoardDrop}
+            />
+          </div>
+        )
       ) : sortedDeals.length === 0 ? (
+        /* ── Empty state (list view or non-active tabs) ── */
         <div className="text-center py-16">
           <p className="text-muted-gray text-sm">
             {activeTab === 0 ? "No active deals. Create one to get started." : `No ${TABS[activeTab].label.toLowerCase()} deals.`}
           </p>
         </div>
       ) : (
+        /* ── Card Grid / List View ── */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {sortedDeals.map((deal) => (
             <DealCard
@@ -258,6 +529,57 @@ export default function FlowPage() {
           brokerId={brokerId}
           allBrokers={allBrokers}
         />
+      )}
+
+      {/* Drop-triggered edit form — opens after dragging a deal to a new column */}
+      {dropEditDeal && dropHighlight && (
+        <DealForm
+          deal={dropEditDeal}
+          onSave={handleDropSave}
+          onCancel={handleDropCancel}
+          saving={saving}
+          mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+          brokerDefaults={brokerDefaults || undefined}
+          userEmail={userEmail}
+          brokerId={brokerId}
+          allBrokers={allBrokers}
+          initialHighlightFields={dropHighlight.fields}
+          contextBanner={dropHighlight.banner}
+        />
+      )}
+
+      {/* Extension prompt modal */}
+      {extensionPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/30" />
+          <div className="relative bg-white rounded-card border border-border-light p-6 w-full max-w-md mx-4">
+            <h3 className="font-bebas text-xl tracking-wide text-charcoal mb-2">
+              Extension Deadline Reached
+            </h3>
+            <p className="text-sm text-medium-gray mb-4">
+              <strong>{extensionPrompt.deal.deal_name}</strong>: {extensionPrompt.dateLabel} on {formatDate(extensionPrompt.dateValue)}
+            </p>
+            <p className="text-sm text-charcoal mb-6">
+              Has an extension been filed for this deal?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleExtensionDecline}
+                className="px-4 py-2 text-sm font-medium text-medium-gray border border-border-light rounded-btn
+                           hover:border-border-medium transition-colors duration-200"
+              >
+                No — Move to Closing
+              </button>
+              <button
+                onClick={handleExtensionFiled}
+                className="px-4 py-2 text-sm font-semibold bg-green text-white rounded-btn
+                           hover:bg-green/90 transition-colors duration-200"
+              >
+                Yes — Extension Filed
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
